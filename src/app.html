@@ -4,12 +4,25 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Cutline Clipping App</title>
-<meta name="description" content="Turn long videos into vertical clips with captions. Your first 5 clips are free.">
+<meta name="description" content="Turn long streams and videos into vertical clips with captions, cut out the slow parts, and queue them for YouTube, Instagram, and TikTok. Your first 5 clips are free.">
+<link rel="canonical" href="https://cutlineclip.com/">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#F6F6F9">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Cutline">
+<meta property="og:url" content="https://cutlineclip.com/">
+<meta property="og:title" content="Cutline: streams in, clips out">
+<meta property="og:description" content="Turn long videos into vertical clips with captions and queue them for YouTube, Instagram, and TikTok. Your first 5 clips are free.">
+<meta property="og:image" content="https://cutlineclip.com/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Anybody:ital,wdth,wght@0,50..150,400..900;1,50..150,400..900&family=Geist:wght@400..700&display=swap" rel="stylesheet">
 <style>
-/* Layout idea: a giant split headline drops straight into a floating, working studio. */
+/* Layout idea: a calm, light product page that frames one dark, working studio. */
 :root {
   color-scheme: dark;
   --void: #07060d;
@@ -372,16 +385,311 @@ footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; g
   .aurora i, .ticker div, h1 .l1 { animation: none; }
   .btn { transition: none; }
 }
+
+.gap-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px; margin-top: 10px; font-size: 14px; font-weight: 600; }
+.gap-row select, .q-edit input { min-height: 36px; padding: 4px 8px; border-radius: 9px; border: 1px solid var(--stroke); background: var(--panel-solid); font-size: 14px; }
+.q-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 12px; font-size: 15px; }
+.q-head[hidden] { display: none; }
+.queue-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; max-height: 260px; overflow-y: auto; }
+.queue-list:empty { display: none; }
+.queue-list li { display: grid; gap: 6px; padding: 9px 10px; border-radius: 11px; background: rgba(138,92,255,.16); border: 1px solid rgba(138,92,255,.35); }
+.q-top { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; }
+.q-top .cap { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.q-when { font-weight: 650; color: var(--cyan); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.q-acts, .q-edit { display: flex; flex-wrap: wrap; gap: 6px; }
+.q-edit[hidden] { display: none; }
+.q-edit input { flex: 1 1 170px; color-scheme: dark; }
+#whenAt { width: 100%; min-height: 44px; padding: 8px 12px; border-radius: 12px; border: 1px solid var(--stroke); background: var(--panel-solid); color-scheme: dark; }
+dialog #whenAt { color-scheme: light; }
+.queue-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
+
+/* ===== Professional theme: a light, quiet page around a dark editing studio. ===== */
+:root {
+  color-scheme: light;
+  --void: #F6F6F9;
+  --panel: #FFFFFF;
+  --panel-solid: #FFFFFF;
+  --stroke: #E3E1EC;
+  --text: #0F0C1D;
+  --dim: #55526B;
+  --pink: #C8155F;
+  --violet: #5B3DF5;
+  --cyan: #0E7490;
+  --flare: linear-gradient(100deg, #C8155F, #5B3DF5);
+  --bad: #B4235A;
+  --shadow: 0 1px 2px rgba(15,12,29,.04), 0 12px 32px rgba(15,12,29,.07);
+}
+.aurora, .ticker { display: none; }
+body { background: var(--void); }
+h2 { font-family: var(--body); font-style: normal; font-stretch: normal; text-transform: none; font-weight: 700; font-size: clamp(30px, 4.2vw, 50px); line-height: 1.06; letter-spacing: -.025em; }
+.eyebrow { display: block; margin-bottom: 12px; font-weight: 650; font-size: 15.5px; color: var(--pink); }
+.sec-head { max-width: 760px; margin: 0 auto 40px; text-align: center; }
+.sec-head p { margin-top: 14px; color: var(--dim); font-size: 18px; }
+:focus-visible { outline: 2px solid var(--violet); }
+
+/* Buttons */
+.btn { border-radius: 12px; box-shadow: none; }
+.btn:hover { transform: none; }
+.btn-white { background: var(--text); color: #fff; box-shadow: none; }
+.btn-white:hover { background: #2A2640; }
+.btn-ghost { background: #fff; border-color: #D9D6E4; color: var(--text); backdrop-filter: none; }
+.btn-ghost:hover { background: #F1F0F6; }
+.btn-flare { background: var(--pink); color: #fff; box-shadow: none; }
+.btn-flare:hover { background: #A8104F; }
+.btn-lg { min-height: 54px; padding-inline: 26px; font-size: 17px; }
+
+/* Top bar and menus */
+.announce { background: var(--text); color: #fff; font-size: 14.5px; padding: 10px 16px; display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 14px; text-align: center; }
+.announce a { color: #fff; font-weight: 650; text-underline-offset: 3px; }
+.nav-shell { position: sticky; top: 0; margin: 0; padding: 0; background: rgba(246,246,249,.9); backdrop-filter: blur(14px) saturate(160%); border-bottom: 1px solid var(--stroke); }
+.nav { width: min(100%, 1280px); padding: 12px var(--gutter); border: 0; border-radius: 0; background: transparent; backdrop-filter: none; }
+.brand { color: var(--text); }
+.nav-links { color: var(--dim); gap: 22px; }
+.nav-links a:not(.btn):hover { color: var(--text); }
+.nav-links .btn { border-radius: 10px; }
+.nav-links .btn-white { color: #fff; }
+.nav-links a.admin-link { color: var(--violet); }
+.nav-links a.coin-pill.coin-pill { border-color: #F2D48A; background: #FFF8E6; color: var(--text); }
+.nav-links a.coin-pill:hover { background: #FFF0C7; }
+.coin-pill .coin-word { color: #7A5300; }
+.coin-pill.zero { border-color: var(--stroke); background: #fff; }
+#logoutBtn { box-shadow: none; }
+
+/* Public homepage */
+.pub-hero { max-width: 1240px; margin: 0 auto; padding: clamp(48px, 7vw, 88px) var(--gutter) 36px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 22px; }
+.tag { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 999px; background: #fff; border: 1px solid var(--stroke); font-size: 14.5px; font-weight: 600; color: #3D3A52; }
+.tag i { width: 8px; height: 8px; border-radius: 50%; background: var(--pink); }
+.pub-hero h1 { font-size: clamp(44px, 8vw, 104px); line-height: .95; font-stretch: 110%; letter-spacing: -.02em; }
+.pub-hero h1 span, .hero-title span { display: block; white-space: normal; text-align: center; padding: 0; }
+h1 .l1 { text-shadow: none; animation: none; }
+h1 .l2 { background: linear-gradient(100deg, #C8155F, #5B3DF5); -webkit-background-clip: text; background-clip: text; color: transparent; text-align: inherit; padding-right: .08em; }
+.pub-hero > p { max-width: 640px; font-size: clamp(18px, 2vw, 21px); line-height: 1.45; color: #4A4762; }
+.pub-hero .micro { font-size: 14.5px; color: var(--dim); }
+.clips-row { max-width: 1240px; margin: 0 auto; padding: 8px var(--gutter) 64px; display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 16px; }
+.clip-card { margin: 0; display: grid; gap: 10px; }
+.clip-shot { position: relative; aspect-ratio: 9 / 16; border-radius: 20px; overflow: hidden; background: #0A0716; box-shadow: 0 18px 40px rgba(15,12,29,.16); }
+.clip-cam { position: absolute; inset: 0 0 64% 0; }
+.clip-cam::before { content: ""; position: absolute; left: 50%; bottom: 0; width: 58%; height: 46%; transform: translateX(-50%); border-radius: 999px 999px 0 0; background: #07060D; }
+.clip-cam::after { content: ""; position: absolute; left: 50%; top: 20%; width: 34%; aspect-ratio: 1; transform: translateX(-50%); border-radius: 50%; background: var(--skin); box-shadow: 0 0 0 5px var(--phones) inset; }
+.clip-game { position: absolute; inset: 36% 0 0 0; }
+.clip-thing { position: absolute; left: 12%; right: 12%; bottom: 13%; height: 8%; border-radius: 6px; }
+.clip-cap { position: absolute; left: 8%; right: 8%; top: 56%; margin: 0; text-align: center; font-family: var(--display); font-style: italic; font-weight: 900; font-size: 16px; line-height: 1.1; text-transform: uppercase; color: #fff; -webkit-text-stroke: 5px #07060D; paint-order: stroke fill; }
+.clip-len { position: absolute; left: 10px; top: 10px; padding: 3px 9px; border-radius: 999px; background: rgba(255,255,255,.92); color: var(--text); font-size: 12.5px; font-weight: 650; }
+.clip-card figcaption { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; }
+.clip-card figcaption span { color: var(--dim); }
+.platforms { background: #fff; border-block: 1px solid var(--stroke); }
+.platforms div { max-width: 1240px; margin: 0 auto; padding: 24px var(--gutter); display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px 44px; text-align: center; }
+.platforms span { font-size: 15px; color: var(--dim); font-weight: 550; }
+.platforms b { font-size: 20px; color: #2A2740; }
+.steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 18px; }
+.steps li { background: #fff; border: 1px solid var(--stroke); border-radius: 22px; padding: 26px; display: flex; flex-direction: column; gap: 12px; box-shadow: var(--shadow); }
+.steps .num { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; background: var(--text); color: #fff; font-weight: 700; }
+.steps h3 { font-size: 22px; }
+.steps p { color: #4A4762; }
+.steps .vis { margin-top: auto; }
+.mini-wave { display: flex; align-items: center; gap: 3px; height: 54px; padding: 0 10px; border-radius: 12px; background: #F3F2F8; }
+.mini-wave i { flex: 1; border-radius: 2px; background: #C9C4DA; }
+.mini-wave i.hot { background: var(--pink); }
+.mini-cut { display: flex; gap: 4px; height: 54px; }
+.mini-cut span { border-radius: 10px; background: #EDE9FF; border: 1px solid #C9BEFF; }
+.mini-cut span.sel { border: 2px solid var(--violet); }
+.mini-cut span.cut { display: grid; place-items: center; background: repeating-linear-gradient(135deg, #FCE7F1 0 8px, #fff 8px 14px); border: 1px dashed var(--pink); font-size: 13px; font-weight: 650; color: var(--pink); }
+.mini-q { display: grid; gap: 6px; }
+.mini-q div { display: flex; justify-content: space-between; gap: 8px; padding: 9px 12px; border-radius: 10px; background: #F3F2F8; font-size: 14px; font-weight: 600; }
+.mini-q b { color: var(--violet); white-space: nowrap; }
+
+/* Logged-in header */
+.hero { padding-top: clamp(28px, 4vw, 48px); }
+.hero-title { font-family: var(--body); font-style: normal; font-stretch: normal; text-transform: none; font-weight: 700; font-size: clamp(32px, 4vw, 46px); letter-spacing: -.025em; line-height: 1.05; }
+.hero-title span { text-align: left !important; }
+.hero-sub { margin-top: 12px; }
+.hero-sub p { color: var(--dim); font-size: 18px; }
+
+/* The studio stays dark: it's where the video work happens. */
+.studio { color-scheme: dark; --panel: rgba(255,255,255,.055); --panel-solid: #14121f; --stroke: rgba(255,255,255,.13); --text: #f7f5ff; --dim: #b4b0cc; --pink: #ff2e88; --violet: #8a5cff; --cyan: #27e8f2; --flare: linear-gradient(100deg, #ff2e88, #8a5cff 52%, #27e8f2); color: var(--text); background: #0F0C1D; backdrop-filter: none; border: 0; box-shadow: 0 30px 80px rgba(15,12,29,.28); margin-top: 26px; }
+.studio .btn-white { background: #f7f5ff; color: #0b0914; }
+.studio .btn-ghost { background: rgba(255,255,255,.07); border-color: rgba(255,255,255,.13); color: #f7f5ff; }
+.studio .btn-flare { background: linear-gradient(100deg, #ff2e88, #8a5cff 52%, #27e8f2); }
+.studio .tool { background: rgba(255,255,255,.07); }
+.studio .tool:hover { background: rgba(255,255,255,.15); }
+.studio .note, .studio .queue-count { color: #b4b0cc; }
+
+/* Features */
+.feat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 16px; }
+@media (min-width: 900px) { .feat-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.feat { background: #fff; border: 1px solid var(--stroke); border-radius: 20px; padding: 24px; display: flex; flex-direction: column; gap: 10px; box-shadow: var(--shadow); }
+.feat .ico { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; background: #F1EEFF; color: var(--violet); }
+.feat .ico svg { width: 22px; height: 22px; }
+.feat h3 { font-size: 19px; }
+.feat p { color: #4A4762; font-size: 16px; }
+.feat .mini-wave { margin-top: 6px; height: 46px; }
+
+/* Earnings */
+.earn-grid > div > p { color: #4A4762; }
+.calc { background: #fff; border-color: var(--stroke); backdrop-filter: none; box-shadow: var(--shadow); border-radius: 24px; }
+.result-big { background: linear-gradient(100deg, #C8155F, #5B3DF5); -webkit-background-clip: text; background-clip: text; }
+
+/* Pricing */
+.plans { gap: 16px; }
+.plan { background: #fff; border-color: var(--stroke); backdrop-filter: none; border-radius: 24px; box-shadow: var(--shadow); padding: 28px; gap: 16px; }
+.plan .sub { color: var(--dim); font-size: 15.5px; margin-top: -8px; }
+.plan.main { background: var(--text); color: #fff; border: 2px solid var(--pink); box-shadow: 0 24px 60px rgba(91,61,245,.22); }
+.plan.main .sub, .plan.main .price small { color: #C9C6DA; }
+.plan.main .btn-flare { background: var(--pink); }
+.badge { position: absolute; top: -14px; left: 28px; padding: 4px 12px; border-radius: 999px; background: var(--pink); color: #fff; font-size: 13px; font-weight: 700; }
+.price { font-family: var(--body); font-style: normal; font-weight: 750; font-size: 52px; letter-spacing: -.03em; }
+.plan ul { list-style: none; padding: 0; color: inherit; gap: 10px; font-size: 15.5px; }
+.plan li { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 10px; }
+.plan li::before { content: ""; width: 18px; height: 18px; margin-top: 3px; background: var(--violet); -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12l5 5L20 7'/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12l5 5L20 7'/%3E%3C/svg%3E") center / contain no-repeat; }
+.plan.main li::before { background: #67E8F9; }
+.plan .btn { order: 0; }
+.plan-status, .coin-status, #payStatus, .post-status, #authStatus, #resetStatus, .free.out { color: var(--bad); }
+#authStatus.ok, #resetStatus.ok { color: #0E7490; }
+.coins-strip { background: #fff; border-color: var(--stroke); box-shadow: var(--shadow); border-radius: 22px; }
+.coin { background: #fff; border-color: #D9D6E4; }
+.coin:hover { background: #F6F5FB; }
+.coin span { color: var(--violet); }
+
+/* FAQ */
+.faq-grid > div:first-child p { margin-top: 14px; color: var(--dim); }
+.faq-list { display: grid; gap: 10px; }
+.faq-list details { background: #fff; border: 1px solid var(--stroke); border-radius: 16px; padding: 18px 22px; }
+.faq-list summary { font-size: 17.5px; }
+.faq-list summary::after { color: var(--violet); }
+.faq-list details p { color: #4A4762; }
+
+/* Closing band and footer */
+.cta-band { position: relative; overflow: hidden; background: var(--text); color: #fff; border-radius: 32px; padding: clamp(36px, 6vw, 76px); display: flex; flex-direction: column; align-items: center; text-align: center; gap: 18px; }
+.cta-band::before { content: ""; position: absolute; left: -10%; right: -10%; bottom: -70%; height: 100%; border-radius: 50%; background: var(--pink); opacity: .35; filter: blur(80px); }
+.cta-band > * { position: relative; }
+.cta-band h2 { font-family: var(--display); font-style: italic; font-weight: 900; text-transform: uppercase; font-size: clamp(34px, 5.4vw, 66px); line-height: .98; letter-spacing: -.02em; }
+.cta-band p { color: #D9D6E8; max-width: 32em; font-size: 18px; }
+.cta-band .btn-white { background: #fff; color: var(--text); }
+.site-footer { margin-top: 24px; background: #fff; border-top: 1px solid var(--stroke); padding: 0; color: var(--dim); font-size: 15px; }
+.foot-top { width: min(100%, 1280px); margin: 0 auto; padding: 48px var(--gutter) 28px; display: flex; flex-wrap: wrap; gap: 32px 56px; }
+.foot-brand { flex: 2 1 280px; display: grid; gap: 10px; align-content: start; }
+.foot-brand p { max-width: 30em; color: #4A4762; }
+.foot-brand a, .foot-col a { color: var(--text); }
+.foot-col { flex: 1 1 150px; display: flex; flex-direction: column; gap: 8px; }
+.foot-col b { color: var(--text); }
+.foot-col a { text-decoration: none; color: #4A4762; }
+.foot-col a:hover { color: var(--text); text-decoration: underline; }
+.foot-bottom { width: min(100%, 1280px); margin: 0 auto; padding: 18px var(--gutter) 32px; border-top: 1px solid #EEECF4; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 24px; font-size: 14.5px; }
+.initials { font-family: var(--body); font-style: normal; letter-spacing: 0; font-weight: 650; color: var(--dim); }
+
+/* Log in and sign up */
+.gate { background: var(--void); }
+.gate-pitch > p { color: #4A4762; }
+.gate h1 { font-size: clamp(36px, 4.6vw, 68px); }
+.gate h1 span { white-space: normal; text-align: left; }
+.gate-points { list-style: none; margin: 26px 0 0; padding: 0; display: grid; gap: 10px; color: #2A2740; font-weight: 550; }
+.gate-points li { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 10px; }
+.gate-points li::before { content: ""; width: 18px; height: 18px; margin-top: 3px; border-radius: 6px; background: var(--pink); }
+.back-home { display: inline-block; margin-bottom: 22px; color: var(--dim); font-weight: 600; text-decoration: none; }
+.back-home:hover { color: var(--text); }
+.auth { background: #fff; border-color: var(--stroke); backdrop-filter: none; box-shadow: 0 30px 80px rgba(15,12,29,.12); }
+.auth-tabs { background: #F1F0F6; }
+.auth-tabs button[aria-selected=true] { background: var(--text); color: #fff; }
+.pw button { color: var(--violet); }
+#authForm .btn, #resetForm .btn { min-height: 52px; }
+
+/* Admin, notices, dialogs */
+.admin-stats div, .admin-table { background: #fff; border-color: var(--stroke); box-shadow: var(--shadow); }
+.admin-table td { border-bottom-color: #EEECF4; }
+.row-acts button { background: #fff; border-color: #D9D6E4; }
+.row-acts button.danger { color: var(--bad); }
+.admin-bar .tool, #adminRefresh { background: #fff; border-color: #D9D6E4; }
+.you { color: var(--violet); }
+.notice { background: #ECFEFF; border-color: #A5E3EE; color: var(--text); }
+.notice.bad { background: #FDF0F5; border-color: #F2B8CF; }
+dialog { background: #fff; color: var(--text); border-color: var(--stroke); box-shadow: 0 30px 90px rgba(15,12,29,.28); }
+dialog::backdrop { background: rgba(15,12,29,.45); }
+#postDialog .pf { background: #FAFAFC; }
+.tt-legal a { color: var(--violet); }
+
+#site[hidden], #publicTop[hidden], #appTop[hidden] { display: none !important; }
+.signed-in #publicTop { display: none !important; }
+@media (max-width: 760px) { .clips-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } .clips-row .clip-card:nth-child(n+5) { display: none; } }
+@media (max-width: 480px) { .announce { font-size: 13.5px; } .pub-hero .cta-row, .pub-hero .cta-row .btn { width: 100%; } }
+
+/* ===== v2: the clean layout with the old site's neon energy ===== */
+.btn { border-radius: 999px; }
+.btn:hover { transform: translateY(-1px); }
+.announce { background: linear-gradient(90deg, #ff2e88, #8a5cff); }
+#publicTop .nav-shell { background: rgba(11,9,20,.88); border-bottom-color: rgba(255,255,255,.1); }
+#publicTop .brand { color: #fff; }
+#publicTop .brand rect { fill: #fff; }
+#publicTop .nav-links { color: #cfcbe6; }
+#publicTop .nav-links a:not(.btn):hover { color: #fff; }
+#publicTop .nav-links .btn-ghost { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.2); color: #fff; }
+#publicTop .nav-links .btn-white { background: #fff; color: #0F0C1D; }
+.hero-dark { color: #f7f5ff; background: radial-gradient(800px 440px at 12% 0%, rgba(255,46,136,.38), transparent 70%), radial-gradient(760px 440px at 92% 8%, rgba(138,92,255,.4), transparent 70%), radial-gradient(700px 380px at 50% 100%, rgba(39,232,242,.16), transparent 70%), #0B0914; }
+.hero-dark h1 { color: #fff; }
+.hero-dark h1 .l2 { background: linear-gradient(100deg, #ff2e88, #8a5cff 52%, #27e8f2); -webkit-background-clip: text; background-clip: text; }
+.hero-dark .tag { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.18); color: #f7f5ff; }
+.hero-dark .tag i { background: #27e8f2; box-shadow: 0 0 12px #27e8f2; }
+.hero-dark .pub-hero > p { color: #d4d0ea; }
+.hero-dark .micro { color: #a9a5c4 !important; }
+.hero-dark .btn-flare { background: linear-gradient(100deg, #ff2e88, #8a5cff); box-shadow: 0 10px 34px rgba(255,46,136,.4); }
+.hero-dark .btn-ghost { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.22); color: #fff; }
+.hero-dark .clip-card figcaption b { color: #fff; }
+.hero-dark .clip-card figcaption span { color: #a9a5c4; }
+.clip-shot { transition: transform .25s ease; box-shadow: 0 20px 50px rgba(0,0,0,.45); }
+.clip-card:nth-child(odd) .clip-shot { transform: rotate(-2.5deg); }
+.clip-card:nth-child(even) .clip-shot { transform: rotate(2.5deg); }
+.clip-card:hover .clip-shot { transform: rotate(0) scale(1.03); }
+.vibe-tick { overflow: hidden; border-top: 1px solid rgba(255,255,255,.1); padding: 16px 0; }
+.vibe-tick div { display: flex; width: max-content; gap: 28px; animation: vibe 32s linear infinite; }
+.vibe-tick span { font-family: var(--display); font-style: italic; font-weight: 900; text-transform: uppercase; font-size: 22px; white-space: nowrap; color: #f7f5ff; }
+.vibe-tick span:nth-child(4n+2) { color: #ff2e88; }
+.vibe-tick span:nth-child(4n) { color: #27e8f2; }
+@keyframes vibe { to { transform: translateX(-50%); } }
+@media (prefers-reduced-motion: reduce) { .vibe-tick div { animation: none; } .clip-shot { transition: none; } }
+h2, .hero-title { font-family: var(--display); font-style: italic; font-weight: 900; text-transform: uppercase; letter-spacing: -.015em; line-height: .98; }
+h2 { font-size: clamp(32px, 4.8vw, 58px); }
+.eyebrow { display: inline-block; padding: 5px 14px; border-radius: 999px; background: #FFE4F0; color: #C8155F; font-size: 14.5px; }
+.steps .num { border-radius: 50%; background: linear-gradient(135deg, #ff2e88, #8a5cff); }
+.steps li, .feat { transition: transform .2s ease; }
+.steps li:hover, .feat:hover { transform: translateY(-3px); }
+.feat:nth-child(1) .ico { background: #FFE4F0; color: #C8155F; }
+.feat:nth-child(2) .ico { background: #EDE9FF; color: #5B3DF5; }
+.feat:nth-child(3) .ico { background: #DDF7FB; color: #0E7490; }
+.feat:nth-child(4) .ico { background: #FFF4CC; color: #8A5A00; }
+.feat:nth-child(5) .ico { background: #E3F9E9; color: #15803D; }
+.feat:nth-child(6) .ico { background: #FFE9DD; color: #C2410C; }
+.mini-wave i.hot { background: linear-gradient(#ff2e88, #8a5cff); }
+.result-big { background: linear-gradient(100deg, #ff2e88, #8a5cff 60%, #0E7490); -webkit-background-clip: text; background-clip: text; }
+.plan.main { border: 0; background: radial-gradient(400px 260px at 100% 0%, rgba(138,92,255,.45), transparent 70%), radial-gradient(400px 260px at 0% 100%, rgba(255,46,136,.35), transparent 70%), #0F0C1D; }
+.plan.main .btn-flare { background: linear-gradient(100deg, #ff2e88, #8a5cff); }
+.badge { background: linear-gradient(90deg, #ff2e88, #8a5cff); }
+.cta-band { background: #0B0914; }
+.cta-band::before { background: linear-gradient(90deg, #ff2e88, #8a5cff, #27e8f2); opacity: .45; }
+
+/* v3: the editor you can try, right in the top of the page */
+.signed-in .visitor-only { display: none !important; }
+html:not(.signed-in) .member-only { display: none !important; }
+.hero-dark .pub-hero { padding-bottom: 30px; }
+.hero-dark .pub-hero { padding-top: clamp(36px, 5vw, 64px); }
+.try.wrap { padding-top: 6px; padding-bottom: 44px; margin-top: 0; }
+.try-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 14px 32px; margin-bottom: 18px; }
+.try-head h2 { color: #fff; font-size: clamp(26px, 3.4vw, 42px); }
+.try-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.try-steps li { display: flex; align-items: center; gap: 9px; padding: 7px 15px 7px 7px; border-radius: 999px; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.14); color: #ebe8f8; font-size: 14.5px; font-weight: 550; }
+.try-steps b { width: 26px; height: 26px; flex: none; border-radius: 50%; display: grid; place-items: center; background: linear-gradient(135deg, #ff2e88, #8a5cff); color: #fff; font-size: 13px; }
+.hero-dark .studio { margin-top: 0; border: 1px solid rgba(255,255,255,.12); box-shadow: 0 40px 100px rgba(0,0,0,.5), 0 0 80px rgba(138,92,255,.18); }
 </style>
 </head>
 <body>
 <!--SERVER-MODE-->
-<div class="aurora" aria-hidden="true"><i></i><i></i><i></i></div>
-<main class="gate wrap" id="gate">
+<script>if (window.CUTLINE_SERVER && window.CUTLINE_SERVER.user) document.documentElement.classList.add("signed-in");</script>
+<span id="top"></span>
+<main class="gate wrap" id="gate" hidden>
   <div class="gate-pitch">
+    <a class="back-home" href="#top">Back to home</a>
     <div class="brand"><svg viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="g2" x1="0" x2="1"><stop stop-color="#ff2e88"/><stop offset="1" stop-color="#27e8f2"/></linearGradient></defs><path fill="url(#g2)" d="M9 2H2v20h7v-4H6V6h3zM15 2h7v20h-7v-4h3V6h-3z"/><rect x="11" width="2" height="24" fill="#fff"/></svg>Cutline</div>
     <h1><span class="l1">Streams in.</span><span class="l2">Clips out.</span></h1>
     <p>Create a free account to turn your videos into vertical clips with captions. Your first 5 clips are free.</p>
+    <ul class="gate-points"><li>No card needed</li><li>Works in Chrome and Edge, nothing to install</li><li>Your full video stays on your device</li></ul>
   </div>
   <section class="auth" aria-label="Your account">
     <div class="auth-tabs" role="tablist">
@@ -408,11 +716,26 @@ footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; g
       <button class="linkish" id="resetBack" type="button">Back to log in</button>
     </form>
   </section>
-  <p class="initials gate-initials">SC · CK</p>
+  <p class="initials gate-initials">Made by SC · CK</p>
 </main>
+
+<div id="publicTop">
+<div class="announce"><span><strong>New:</strong> your first 5 clips are free. No card needed.</span><a href="#signup">Start free</a></div>
+<div class="nav-shell">
+  <nav class="nav" aria-label="Main">
+    <a class="brand" href="#top"><svg viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="g3" x1="0" x2="1"><stop stop-color="#E11D74"/><stop offset="1" stop-color="#06B6D4"/></linearGradient></defs><path fill="url(#g3)" d="M9 2H2v20h7v-4H6V6h3zM15 2h7v20h-7v-4h3V6h-3z"/><rect x="11" width="2" height="24" fill="#0F0C1D"/></svg>Cutline</a>
+    <div class="nav-links">
+      <a href="#how">How it works</a><a href="#features">Features</a><a href="#pricing">Pricing</a><a href="#faq">FAQ</a>
+      <a class="btn btn-ghost" href="#login">Log in</a>
+      <a class="btn btn-white" href="#signup">Start free</a>
+    </div>
+  </nav>
+</div>
+</div>
+
 <!--APP-START-->
-<div id="appRoot" hidden>
-<div class="nav-shell" id="top">
+<div id="appTop" hidden>
+<div class="nav-shell">
   <nav class="nav" aria-label="Main">
     <a class="brand" href="#top"><svg viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="g" x1="0" x2="1"><stop stop-color="#ff2e88"/><stop offset="1" stop-color="#27e8f2"/></linearGradient></defs><path fill="url(#g)" d="M9 2H2v20h7v-4H6V6h3zM15 2h7v20h-7v-4h3V6h-3z"/><rect x="11" width="2" height="24" fill="#fff"/></svg>Cutline</a>
     <div class="nav-links">
@@ -423,13 +746,27 @@ footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; g
   </nav>
 </div>
 
-<header class="hero wrap">
-  <h1><span class="l1">Streams in.</span><span class="l2">Clips out.</span></h1>
-  <div class="hero-sub">
-    <p>Turn videos you have permission to use into vertical clips with captions. Your first 5 clips are free, and auto upload to TikTok is coming soon.</p>
-    <div class="cta-row"><a class="btn btn-white" href="#studio">Make a free clip</a><a class="btn btn-ghost" href="#pricing">See pricing</a></div>
-  </div>
+</div>
+<!--APP-END-->
 
+<div id="site">
+<div class="hero-dark">
+<header class="pub-hero">
+  <span class="tag"><i></i>Made for clippers</span>
+  <h1><span class="l1">Streams in.</span><span class="l2">Clips out.</span></h1>
+  <p>Drop in a long stream. Pick the best part. Post it everywhere. That's it.</p>
+  <div class="cta-row visitor-only"><a class="btn btn-flare btn-lg" href="#studio">Try it right here</a><a class="btn btn-ghost btn-lg" href="#signup">Make a free account</a></div>
+  <p class="micro visitor-only">Free to start. No card. Nothing to download.</p>
+</header>
+<section class="try wrap" aria-labelledby="tryTitle">
+  <div class="try-head">
+    <h2 id="tryTitle"><span class="visitor-only">Try it. No account needed.</span><span class="member-only">Make a clip</span></h2>
+    <ol class="try-steps">
+      <li><b>1</b>Tap a glowing dot to jump to a hype moment</li>
+      <li><b>2</b>Drag the edges to trim and type a caption</li>
+      <li><b>3</b>Hit Export clip, then queue it to post</li>
+    </ol>
+  </div>
   <div class="studio" id="studio">
     <div class="edit box">
       <div>
@@ -463,13 +800,16 @@ footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; g
         <p class="free" id="freeLeft"></p>
         <button class="btn btn-flare" id="exportBtn" type="button">Export clip</button>
         <button class="btn btn-white" id="saveBtn" type="button" hidden>Save clip</button>
-        <button class="btn btn-ghost" id="postBtn" type="button" hidden>Post to your accounts</button>
+        <button class="btn btn-ghost" id="postBtn" type="button" hidden>Add to upload queue</button>
         <p class="note post-note" id="postNote" role="status"></p>
         <div class="bar" id="bar" hidden><i id="barFill"></i></div>
       </div>
       <div class="queue box" id="queueBox">
         <div class="queue-head" id="accounts"><h3>Auto upload</h3><span class="queue-count" id="acctCount"></span></div>
         <ul class="accts" id="accts"></ul>
+        <div class="gap-row"><label for="queueGap">Space new uploads</label><select id="queueGap"><option value="0">Right away</option><option value="15">15 minutes apart</option><option value="30">30 minutes apart</option><option value="60">1 hour apart</option><option value="180">3 hours apart</option></select></div>
+        <div class="q-head" id="qHead" hidden><b>Upload queue</b><button class="mini" id="lineUp" type="button">Line up back to back</button></div>
+        <ol class="queue-list" id="queueList"></ol>
         <ol class="posts" id="postList"></ol>
       </div>
     </div>
@@ -502,9 +842,18 @@ footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; g
       <p class="ed-status" id="edStatus" role="status"></p>
     </div>
   </div>
-</header>
-
-<div class="ticker" aria-hidden="true"><div id="tick"></div></div>
+</section>
+<div class="vibe-tick" aria-hidden="true"><div><span>Auto upload</span><span>✦</span><span>Captions</span><span>✦</span><span>Cut the boring parts</span><span>✦</span><span>Vertical in one click</span><span>✦</span><span>YouTube</span><span>✦</span><span>Instagram</span><span>✦</span><span>TikTok</span><span>✦</span><span>5 free clips</span><span>✦</span><span>Auto upload</span><span>✦</span><span>Captions</span><span>✦</span><span>Cut the boring parts</span><span>✦</span><span>Vertical in one click</span><span>✦</span><span>YouTube</span><span>✦</span><span>Instagram</span><span>✦</span><span>TikTok</span><span>✦</span><span>5 free clips</span><span>✦</span></div></div>
+</div>
+<div class="platforms"><div><span>Post to</span><b>YouTube Shorts</b><b>Instagram Reels</b><b>TikTok</b><span>Built for paid clipping campaigns</span></div></div>
+<section id="how" class="wrap">
+  <div class="sec-head"><span class="eyebrow">How it works</span><h2>Three steps. That's it.</h2></div>
+  <ol class="steps">
+    <li><span class="num">1</span><h3>Drop your video</h3><p>Upload any stream or video you can use. We mark the hype moments for you.</p><div class="vis mini-wave" id="howWave" aria-hidden="true"></div></li>
+    <li><span class="num">2</span><h3>Cut the good part</h3><p>Trim it, cut the boring bits, add a caption. Takes about a minute.</p><div class="vis mini-cut" aria-hidden="true"><span class="sel" style="flex: 3"></span><span class="cut" style="flex: 2">Cut</span><span style="flex: 4"></span></div></li>
+    <li><span class="num">3</span><h3>Post it everywhere</h3><p>Pick YouTube, Instagram, or TikTok. Pick a time. Done.</p><div class="vis mini-q" aria-hidden="true"><div><span>YouTube, Instagram</span><b>Today, 6:00 PM</b></div><div><span>TikTok</span><b>Today, 7:00 PM</b></div></div></li>
+  </ol>
+</section>
 
 <p class="notice wrap" id="notice" role="status" hidden></p>
 <main>
@@ -522,18 +871,19 @@ footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; g
   </section>
   <!--ADMIN-END-->
   <section id="features" class="wrap">
-    <h2>Everything between the stream and the post</h2>
-    <div class="bento">
-      <article class="card wide"><span class="pill now">Works today</span><div class="viz bars" id="bars"></div><h3>Find the loudest moments</h3><p>Cutline scans your video's audio and marks the spikes worth checking first.</p></article>
-      <article class="card wide"><span class="pill now">Works today</span><div class="viz crop"><b></b></div><h3>Reframe for vertical</h3><p>Slide the frame to keep the action centered in a 9:16 clip.</p></article>
-      <article class="card"><span class="pill now">Works today</span><div class="viz"><span class="capdemo">Wait for it</span></div><h3>Burn in captions</h3><p>Pick a style and your caption is built into the video.</p></article>
-      <article class="card"><span class="pill now">Works today</span><div class="viz file"><b>720 × 1280</b></div><h3>Export with sound</h3><p>Save a finished clip, then upload it to TikTok yourself.</p></article>
-      <article class="card"><span class="pill now">Connect your accounts</span><div class="viz slots"><i class="on"></i><i></i><i class="on"></i><i></i><i class="on"></i></div><h3>Auto upload</h3><p>Connect YouTube and Instagram to upload every clip automatically. TikTok posts after one tap to confirm.</p></article>
+    <div class="sec-head"><span class="eyebrow">Features</span><h2>Everything you need. Nothing you don't.</h2></div>
+    <div class="feat-grid">
+      <article class="feat"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h2l2-6 4 12 3-9 2 3h5"/></svg></span><h3>Loud-moment finder</h3><p>We find the loudest moments so you skip straight to the hype.</p><div class="mini-wave" id="bars" aria-hidden="true"></div></article>
+      <article class="feat"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4l12 16M18 4L6 20M4 9h4M16 15h4"/></svg></span><h3>Split and cut</h3><p>Cut out the slow parts. The clip plays back to back.</p></article>
+      <article class="feat"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3h8a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM10 18h4"/></svg></span><h3>Vertical reframing</h3><p>Wide video to 9:16. Slide the frame to keep the action centered.</p></article>
+      <article class="feat"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h10M4 18h7"/></svg></span><h3>Burned-in captions</h3><p>Pick Bold, Neon, or Box. They show up on every app.</p></article>
+      <article class="feat"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></svg></span><h3>Auto upload</h3><p>Connect your accounts once, then post from Cutline. TikTok asks you to confirm each post.</p></article>
+      <article class="feat"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18M17 7.5c0-1.9-2.2-3.5-5-3.5s-5 1.6-5 3.5S9 11 12 11.5s5 1.6 5 3.5-2.2 3.5-5 3.5-5-1.6-5-3.5"/></svg></span><h3>Earnings estimate</h3><p>Plug in your views and rate. See what a month could pay.</p></article>
     </div>
   </section>
 
   <section id="earnings" class="wrap earn-grid">
-    <div><h2>See what your views could pay</h2><p>Paid clipping campaigns usually pay per 1,000 approved views. Enter your numbers to estimate a month after fees and your plan.</p></div>
+    <div><span class="eyebrow">Earnings</span><h2>See what your views could pay</h2><p>Paid clipping campaigns usually pay per 1,000 approved views. Enter your numbers to estimate a month after fees and your plan.</p></div>
     <div class="calc">
       <div class="field"><label for="views">Views per month <output id="viewsOut" for="views"></output></label><input id="views" type="range" min="0" max="2000000" step="10000" value="250000"></div>
       <div class="field"><label for="approved">Views approved for payment <output id="approvedOut" for="approved"></output></label><input id="approved" type="range" min="10" max="100" step="5" value="70"></div>
@@ -546,15 +896,15 @@ footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; g
   </section>
 
   <section id="pricing" class="wrap">
-    <h2>5 clips free. Then pick a plan.</h2>
+    <div class="sec-head"><span class="eyebrow">Pricing</span><h2>Start free. Pay when it pays off.</h2><p>Every account gets 5 free clips. Cancel a plan any time.</p></div>
     <div class="plans">
-      <div class="plan"><h3>Free trial</h3><div class="price">$0</div><ul><li>5 finished clips</li><li>Captions and vertical reframing</li><li>No card needed</li></ul><a class="btn btn-ghost" href="#studio">Make a free clip</a></div>
-      <div class="plan main"><h3>Solo</h3><div class="price">$19.99 <small>per month</small></div><ul><li>100 clips a month</li><li>Captions and vertical reframing</li><li>Auto upload to YouTube, Instagram, and TikTok</li></ul><button class="btn btn-flare" type="button" data-plan="solo">Choose Solo</button></div>
-      <div class="plan"><h3>Pro</h3><div class="price">$49.99 <small>per month</small></div><ul><li>500 clips a month</li><li>Captions and vertical reframing</li><li>Auto upload to YouTube, Instagram, and TikTok</li></ul><button class="btn btn-ghost" type="button" data-plan="pro">Choose Pro</button></div>
+      <div class="plan"><h3>Free</h3><p class="sub">Try Cutline on your own videos</p><div class="price">$0</div><a class="btn btn-ghost" href="#studio">Make 5 clips free</a><ul><li>5 finished clips</li><li>Captions, cuts, and vertical reframing</li><li>No card needed</li></ul></div>
+      <div class="plan main"><span class="badge">Recommended</span><h3>Solo</h3><p class="sub">For one clipper posting every day</p><div class="price">$19.99 <small>per month</small></div><button class="btn btn-flare" type="button" data-plan="solo">Choose Solo</button><ul><li>100 clips a month</li><li>Captions, cuts, and vertical reframing</li><li>Auto upload to YouTube, Instagram, and TikTok</li></ul></div>
+      <div class="plan"><h3>Pro</h3><p class="sub">For full-time clippers and small teams</p><div class="price">$49.99 <small>per month</small></div><button class="btn btn-white" type="button" data-plan="pro">Choose Pro</button><ul><li>500 clips a month</li><li>Everything in Solo</li><li>Room for several campaigns at once</li></ul></div>
     </div>
     <p class="plan-status" id="planStatus" role="status"></p>
     <div class="coins-strip">
-      <div><h3>Need more clips? Buy coins.</h3><p>1 coin makes 1 extra clip after your free or plan clips run out. Coins never expire.</p></div>
+      <div><h3>Need a few more clips? Buy coins.</h3><p>1 coin makes 1 extra clip after your free or plan clips run out. Coins never expire.</p></div>
       <div class="coin-packs">
         <button class="coin" type="button" data-pack="starter"><b>10 coins</b><span>$4.99</span></button>
         <button class="coin" type="button" data-pack="creator"><b>50 coins</b><span>$19.99</span></button>
@@ -565,24 +915,38 @@ footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; g
   </section>
 
   <section id="faq" class="wrap faq-grid">
-    <h2>Questions clippers ask</h2>
-    <div>
+    <div><span class="eyebrow">FAQ</span><h2>Quick answers</h2><p>Still stuck? Email <a href="mailto:support@cutlineclip.com">support@cutlineclip.com</a>.</p></div>
+    <div class="faq-list">
       <details open><summary>How does auto upload work?</summary><p>Connect your YouTube, Instagram, or TikTok account. Every clip you export uploads to YouTube and Instagram automatically. TikTok requires you to review and confirm each post, so it takes one tap.</p></details>
       <details><summary>Which Instagram accounts work?</summary><p>Instagram only lets apps post to Business or Creator accounts. You can switch for free in the Instagram app under Settings, Account type and tools.</p></details>
       <details><summary>What happens after my 5 free clips?</summary><p>Buy coins to make more clips, 1 coin per clip, or choose a monthly plan.</p></details>
       <details><summary>Can I paste a YouTube or Twitch link?</summary><p>Yes. Select Add link and paste it. Direct video links load right away, and YouTube, Twitch, and similar links import through your Cutline account. Only use videos you own, have permission to use, or received through a campaign that allows clipping.</p></details>
       <details><summary>Which browsers work best?</summary><p>Use the latest Chrome or Edge on a computer. Keep the tab open while your clip exports, because it takes as long as the clip plays.</p></details>
+      <details><summary>What does Cutline do with my connected accounts?</summary><p>Cutline only posts the clips you choose to post. It never posts anything else or changes your profile. You can disconnect an account any time, and remove Cutline's access in your Google, Meta, or TikTok security settings. See our <a href="privacy.html">Privacy Policy</a> for details.</p></details>
       <details><summary>Does Cutline guarantee views or payouts?</summary><p>No. Views depend on your clips and TikTok's recommendations, and each campaign decides which views it pays for.</p></details>
     </div>
   </section>
 
   <section id="start" class="wrap">
-    <div class="cta-card">
-      <div><h2>Your first 5 clips are free</h2><p>Upload a video, make your cut, and export it in minutes. No card needed.</p></div>
-      <div class="start-cta"><a class="btn btn-white" href="#studio">Make a free clip</a><a class="btn btn-ghost" href="#pricing">See pricing</a></div>
+    <div class="cta-band">
+      <h2>Your next clip is in your last stream</h2>
+      <p>Make your first 5 clips free. No card, nothing to install.</p>
+      <a class="btn btn-white btn-lg" href="#studio">Make 5 clips free</a>
     </div>
   </section>
 </main>
+<footer class="site-footer">
+  <div class="foot-top">
+    <div class="foot-brand"><a class="brand" href="#top"><svg viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="g3" x1="0" x2="1"><stop stop-color="#E11D74"/><stop offset="1" stop-color="#06B6D4"/></linearGradient></defs><path fill="url(#g3)" d="M9 2H2v20h7v-4H6V6h3zM15 2h7v20h-7v-4h3V6h-3z"/><rect x="11" width="2" height="24" fill="#0F0C1D"/></svg>Cutline</a><p>Turn long videos into vertical clips with captions, and post them to YouTube, Instagram, and TikTok.</p><a href="mailto:support@cutlineclip.com">support@cutlineclip.com</a></div>
+    <nav class="foot-col" aria-label="Product"><b>Product</b><a href="#features">Features</a><a href="#earnings">Earnings</a><a href="#pricing">Pricing</a><a href="#faq">FAQ</a></nav>
+    <nav class="foot-col" aria-label="Legal"><b>Legal</b><a href="privacy.html">Privacy Policy</a><a href="terms.html">Terms of Service</a><a href="terms.html#copyright">Copyright complaints</a></nav>
+    <nav class="foot-col" aria-label="Help"><b>Help</b><a href="mailto:support@cutlineclip.com">Contact support</a><a href="#faq">Common questions</a></nav>
+  </div>
+  <div class="foot-bottom"><span>&copy; 2026 Cutline. Not affiliated with TikTok, YouTube, Instagram, or Twitch.</span><span class="initials">Made by SC · CK</span></div>
+</footer>
+</div>
+
+<!--APP-START-->
 <dialog id="payDialog" aria-labelledby="payTitle">
   <h3 id="payTitle">You've used your 5 free clips</h3>
   <p id="payText">Choose a plan to keep exporting clips.</p>
@@ -601,7 +965,7 @@ footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; g
 </dialog>
 
 <dialog id="postDialog" aria-labelledby="postTitle">
-  <h3 id="postTitle">Post your clip</h3>
+  <h3 id="postTitle">Add to upload queue</h3>
   <div class="post-grid">
     <video id="postPreview" muted playsinline controls aria-label="Preview of your clip"></video>
     <div class="post-fields">
@@ -637,15 +1001,18 @@ footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; g
           </div>
         </div>
       </div>
-      <p class="note">Uploads can take a few minutes to appear on your profiles.</p>
+      <div class="pf"><label class="plabel" for="whenSel">When to post</label>
+        <select id="whenSel"><option value="next">Next open spot</option><option value="pick">Pick a date and time</option></select>
+        <input id="whenAt" type="datetime-local" aria-label="Date and time to post" hidden>
+        <p class="note" id="whenNote"></p>
+      </div>
+      <p class="note">You can change the time or post it right away from your queue. Uploads can take a few minutes to appear on your profiles.</p>
       <p class="post-status" id="postStatus" role="alert"></p>
     </div>
   </div>
-  <div class="pay-foot"><button class="linkish" id="postCancel" type="button">Cancel</button><button class="btn btn-flare" id="postSend" type="button">Post now</button></div>
+  <div class="pay-foot"><button class="linkish" id="postCancel" type="button">Cancel</button><button class="btn btn-flare" id="postSend" type="button">Add to queue</button></div>
 </dialog>
 
-<footer><div class="wrap"><span>Cutline</span><span>Not affiliated with TikTok, YouTube, or Twitch.</span><span class="initials">SC · CK</span></div></footer>
-</div>
 <!--APP-END-->
 
 <script>
@@ -667,7 +1034,9 @@ window.CutlineAuth = (function () {
     catch (e) { return { ok: false, code: "network", message: "Couldn't reach Cutline. Check your connection and try again." }; }
   }
   function reveal() {
-    $("gate").hidden = true; var app = $("appRoot"); app.hidden = false; $("acctEmail").textContent = user.email;
+    document.documentElement.classList.add("signed-in");
+    $("gate").hidden = true; $("site").hidden = false; $("publicTop").hidden = true; $("appTop").hidden = false; $("acctEmail").textContent = user.email;
+    if (/^#(login|signup)$/.test(location.hash)) history.replaceState(null, "", location.pathname + location.search);
     if (ready) ready(user);
   }
   function setTab(isSignup) {
@@ -779,6 +1148,7 @@ window.CutlineAuth = (function () {
       var all = accounts(), a = all[user.email]; a.used = Math.max(0, (a.used || 0) - 1); write(ACC, all); return { clipsUsed: a.used };
     },
     user: function () { return user; },
+    showTab: function (isSignup) { if ($("resetForm").hidden) setTab(isSignup); },
     post: post,
     get: async function (path) { try { var r = await fetch(path, { credentials: "same-origin" }); var d = await r.json(); d.status = r.status; return d; } catch (e) { return { ok: false, code: "network", message: "Couldn't reach Cutline. Check your connection and try again." }; } },
     previewAccounts: accounts,
@@ -786,6 +1156,47 @@ window.CutlineAuth = (function () {
     previewAdminEmail: PREVIEW_ADMIN,
     resetPreview: function () { var all = accounts(); all[user.email].used = 0; write(ACC, all); }
   };
+})();
+</script>
+<script>
+/* Shared by the homepage and the app: which view shows, the earnings estimate, and page details. */
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); }, reduced = matchMedia("(prefers-reduced-motion: reduce)").matches, Auth = window.CutlineAuth;
+  function signedIn() { return document.documentElement.classList.contains("signed-in"); }
+  function showView() {
+    var h = location.hash.slice(1), auth = !signedIn() && (h === "login" || h === "signup" || new URLSearchParams(location.search).has("reset"));
+    $("gate").hidden = !auth; $("site").hidden = auth; $("publicTop").hidden = auth || signedIn();
+    if (auth) { if (Auth && h) Auth.showTab(h !== "login"); window.scrollTo(0, 0); var f = $("authEmail"); if (f && !$("authForm").hidden) setTimeout(function () { f.focus(); }, 0); }
+  }
+  addEventListener("hashchange", showView); showView();
+  /* Visitors can try the editor. Exporting, connecting accounts, plans, and coins go to sign up first. */
+  document.addEventListener("click", function (e) {
+    if (signedIn()) return;
+    var t = e.target.closest && e.target.closest('[data-plan], [data-pack], #exportBtn, #postBtn, #accts button');
+    if (!t) return; e.preventDefault(); e.stopImmediatePropagation();
+    if (t.closest("#studio")) { try { sessionStorage.setItem("cutline_try_caption", $("caption").value); } catch (x) {} }
+    location.hash = "signup";
+  }, true);
+  /* Same-page links scroll smoothly. Log in and sign up switch views instead. */
+  document.addEventListener("click", function (e) {
+    var a = e.target.closest && e.target.closest('a[href^="#"]'); if (!a || e.defaultPrevented) return;
+    var id = a.getAttribute("href").slice(1);
+    if (id === "login" || id === "signup") return;
+    if (id === "top") { e.preventDefault(); if (!$("gate").hidden) { history.pushState(null, "", location.pathname + location.search); showView(); } window.scrollTo({ top: 0, behavior: reduced ? "auto" : "smooth" }); return; }
+    var t = document.getElementById(id); if (t) { e.preventDefault(); t.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" }); }
+  });
+  /* Earnings estimate */
+  var money = function (n) { return (n < 0 ? "-$" : "$") + Math.abs(n).toLocaleString("en-US", { maximumFractionDigits: 0 }); };
+  function updateCalc() { var v = +$("views").value, ap = +$("approved").value, r = Math.max(0, +$("rate").value || 0), p = +$("planCost").value, gross = v / 1000 * r * ap / 100, net = gross * .9 - p, per = r * ap / 100 * .9 / 1000; $("viewsOut").textContent = v.toLocaleString("en-US"); $("approvedOut").textContent = ap + "%"; $("net").textContent = money(net); $("netDetail").textContent = "Estimated monthly take-home: " + money(gross) + " earned, minus a 10% marketplace fee and your $" + p + " plan." + (per > 0 ? " Your plan pays for itself at about " + Math.ceil(p / per).toLocaleString("en-US") + " views." : "") + " Actual pay depends on each campaign."; }
+  ["views", "approved", "rate", "planCost"].forEach(function (id) { $(id).addEventListener("input", updateCalc); });
+
+  updateCalc();
+  /* Small waveforms */
+  [["bars", 30, 18, 24], ["howWave", 40, 24, 31]].forEach(function (w) {
+    var el = $(w[0]); if (!el) return;
+    for (var i = 0; i < w[1]; i++) { var b = document.createElement("i"), hot = i >= w[2] && i <= w[3]; b.style.height = (hot ? 55 + 42 * Math.abs(Math.sin(i * 1.3)) : 16 + 38 * Math.abs(Math.sin(i * 2.1))) + "%"; if (hot) b.className = "hot"; el.appendChild(b); }
+  });
 })();
 </script>
 <!--ADMIN-START-->
@@ -1272,17 +1683,77 @@ window.CutlineAdminStart = function () {
   });
 
   /* Connected accounts and uploads */
-  var conns = [], posts = [], lastClip = null, pollTimer = null, ttInfo = null;
+  var conns = [], posts = [], lastClip = null, pollTimer = null, ttInfo = null, queueGap = 0;
+  /* Queue storage: the Cutline server when it's live, and this browser in the preview so the queue can be tried out. */
+  var QS = Auth.mode === "server" ? {
+    add: function (b) { return Auth.post("/api/posts", b); },
+    schedule: function (id, t) { return Auth.post("/api/posts/schedule", { id: id, scheduleAt: t }); },
+    now: function (id) { return Auth.post("/api/posts/now", { id: id }); },
+    remove: function (id) { return Auth.post("/api/posts/remove", { id: id }); },
+    setGap: function (g) { return Auth.post("/api/settings/queue", { gap: g }); },
+    refresh: function () { return Auth.get("/api/posts"); },
+    creator: function () { return Auth.get("/api/tiktok/creator"); }
+  } : (function () {
+    var memKey = null, mem = null;
+    function load() { var k = "cutline_preview_queue_" + ((Auth.user() || {}).email || ""); if (mem && memKey === k) return mem; memKey = k; try { mem = JSON.parse(localStorage.getItem(k)) || { posts: [], gap: 0 }; } catch (e) { mem = { posts: [], gap: 0 }; } return mem; }
+    function save() { try { localStorage.setItem(memKey, JSON.stringify(mem)); } catch (e) {} }
+    function tick() { var st = load(), t = Date.now(); st.posts.forEach(function (p) { if (p.status === "queued" && p.scheduledAt <= t) { p.status = "posted"; p.message = ""; } }); save(); }
+    function out() { tick(); var st = load(); var q = st.posts.filter(function (p) { return p.status === "queued"; }).sort(function (a, b) { return a.scheduledAt - b.scheduledAt; }); var r = st.posts.filter(function (p) { return p.status !== "queued"; }).slice(-12).reverse(); return { ok: true, posts: q.concat(r), queueGap: st.gap }; }
+    function check(t) { t = Number(t); if (!isFinite(t)) return "Pick a date and time."; if (t < Date.now() - 60000) return "That time has already passed. Pick a time in the future."; if (t > Date.now() + 30 * 864e5) return "Pick a time in the next 30 days."; return ""; }
+    function find(id) { return load().posts.filter(function (p) { return p.id === id && p.status === "queued"; })[0]; }
+    return {
+      add: async function (b) {
+        var st = load(), slot, err;
+        for (var p in b.targets) if (st.posts.some(function (x) { return x.clipId === b.clipId && x.platform === p && x.status !== "failed"; })) return { ok: false, message: "This clip is already in the queue for " + NAMES[p] + "." };
+        if (b.scheduleAt != null) { err = check(b.scheduleAt); if (err) return { ok: false, message: err }; slot = Math.max(Date.now(), b.scheduleAt); }
+        else { var waiting = st.posts.filter(function (x) { return x.status !== "failed"; }).map(function (x) { return x.scheduledAt; }); slot = st.gap && waiting.length ? Math.max(Date.now(), Math.max.apply(null, waiting) + st.gap * 60000) : Date.now() + (st.gap ? 0 : 20000); }
+        Object.keys(b.targets).forEach(function (p) { st.posts.push({ id: Math.random().toString(36).slice(2), clipId: b.clipId, platform: p, name: NAMES[p], caption: b.caption, status: "queued", message: "", url: "", scheduledAt: slot }); });
+        save(); return out();
+      },
+      schedule: async function (id, t) { var p = find(id), err = check(t); if (!p) return { ok: false, message: "That upload already went out." }; if (err) return { ok: false, message: err }; p.scheduledAt = Math.max(Date.now(), t); save(); return out(); },
+      now: async function (id) { var p = find(id); if (!p) return { ok: false, message: "That upload already went out." }; p.scheduledAt = Date.now(); save(); return out(); },
+      remove: async function (id) { var st = load(), n = st.posts.length; st.posts = st.posts.filter(function (p) { return !(p.id === id && p.status === "queued"); }); if (st.posts.length === n) return { ok: false, message: "That upload already went out." }; save(); return out(); },
+      setGap: async function (g) { load().gap = g; save(); return { ok: true, queueGap: g }; },
+      refresh: async function () { return out(); },
+      creator: async function () { return { ok: true, creator: { nickname: "Preview account", privacyOptions: ["PUBLIC_TO_EVERYONE", "MUTUAL_FOLLOW_FRIENDS", "FOLLOWER_OF_CREATOR", "SELF_ONLY"], commentDisabled: false, duetDisabled: false, stitchDisabled: false, maxDuration: 600 } }; },
+      init: out
+    };
+  })();
+  function pad(n) { return String(n).padStart(2, "0"); }
+  function toLocalInput(ms) { var d = new Date(ms); return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) + "T" + pad(d.getHours()) + ":" + pad(d.getMinutes()); }
+  function fromLocalInput(v) { var t = new Date(v).getTime(); return isFinite(t) ? t : NaN; }
+  function whenText(ms) {
+    if (ms <= Date.now() + 30000) return "Posting now";
+    var d = new Date(ms), today = new Date(), days = Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()) - new Date(today.getFullYear(), today.getMonth(), today.getDate())) / 864e5);
+    var time = d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+    return (days === 0 ? "Today" : days === 1 ? "Tomorrow" : d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })) + ", " + time;
+  }
+  function nextOpenSpot() {
+    var waiting = posts.filter(function (p) { return p.status !== "failed" && p.scheduledAt; }).map(function (p) { return p.scheduledAt; });
+    return queueGap && waiting.length ? Math.max(Date.now(), Math.max.apply(null, waiting) + queueGap * 60000) : Date.now();
+  }
+  function applyPosts(d) { if (d && d.ok && d.posts) { posts = d.posts; renderPosts(); } return d; }
+  async function queueAction(fn, okMsg) { var d = await fn(); if (!d.ok) { notice(d.message || "That didn't save. Try again.", true); return d; } applyPosts(d); if (okMsg) notice(okMsg); return d; }
   var NAMES = { youtube: "YouTube", tiktok: "TikTok", instagram: "Instagram" };
   var TT_PRIVACY = { PUBLIC_TO_EVERYONE: "Everyone", MUTUAL_FOLLOW_FRIENDS: "Friends", FOLLOWER_OF_CREATOR: "Followers", SELF_ONLY: "Only me" };
   function notice(msg, bad) { var n = $("notice"); n.textContent = msg; n.className = "notice wrap" + (bad ? " bad" : ""); n.hidden = !msg; }
   function mini(label, cls, fn) { var b = document.createElement("button"); b.type = "button"; b.className = "mini" + (cls ? " " + cls : ""); b.textContent = label; b.addEventListener("click", fn); return b; }
   function connected(p) { return conns.some(function (c) { return c.platform === p && c.connected; }); }
   async function loadConnections() {
-    if (Auth.mode !== "server") { conns = ["youtube", "instagram", "tiktok"].map(function (p) { return { platform: p, name: NAMES[p], preview: true }; }); renderAccts(); return; }
+    if (Auth.mode !== "server") { conns = ["youtube", "instagram", "tiktok"].map(function (p) { return { platform: p, name: NAMES[p], preview: true, accountName: "Preview account" }; }); var q = QS.init(); posts = q.posts; queueGap = q.queueGap; $("queueGap").value = String(queueGap); renderAccts(); renderPosts(); return; }
     var d = await Auth.get("/api/connections");
-    if (d.ok) { conns = d.connections; posts = d.posts; renderAccts(); renderPosts(); }
+    if (d.ok) { conns = d.connections; posts = d.posts; queueGap = d.queueGap || 0; $("queueGap").value = String(queueGap); renderAccts(); renderPosts(); }
   }
+  $("queueGap").addEventListener("change", async function () {
+    var g = Number(this.value), d = await QS.setGap(g);
+    if (!d.ok) { notice(d.message, true); this.value = String(queueGap); return; }
+    queueGap = g; notice(g ? "New uploads will line up " + this.options[this.selectedIndex].text + "." : "New uploads will post right away.");
+  });
+  $("lineUp").addEventListener("click", async function () {
+    var groups = queueGroups(), gap = (queueGap || 15) * 60000, start = Math.max(Date.now(), groups.length ? groups[0].at : Date.now());
+    for (var i = 0; i < groups.length; i++) for (var j = 0; j < groups[i].items.length; j++) { var d = await QS.schedule(groups[i].items[j].id, start + i * gap); if (!d.ok) { notice(d.message, true); await refreshPosts(); return; } applyPosts(d); }
+    notice("Your queue is lined up back to back, " + (gap / 60000 >= 60 ? gap / 3600000 + (gap === 3600000 ? " hour" : " hours") : gap / 60000 + " minutes") + " apart.");
+  });
   function renderAccts() {
     var ul = $("accts"); ul.textContent = "";
     ["youtube", "instagram", "tiktok"].forEach(function (p) {
@@ -1300,7 +1771,7 @@ window.CutlineAdminStart = function () {
       li.append(top, row); ul.appendChild(li);
     });
     var n = conns.filter(function (c) { return c.connected; }).length; $("acctCount").textContent = n + " connected";
-    if (lastClip && lastClip.uploaded) $("postBtn").hidden = !n;
+    if (lastClip && lastClip.uploaded) $("postBtn").hidden = Auth.mode === "server" ? !n : false;
   }
   function connectTo(c) {
     if (c.preview) { notice("Connecting accounts works once your site is live."); return; }
@@ -1309,24 +1780,63 @@ window.CutlineAdminStart = function () {
   }
   async function setAuto(p, on) { var d = await Auth.post("/api/connections/auto", { platform: p, on: on }); if (d.ok) { conns = d.connections; renderAccts(); } else notice(d.message, true); }
   async function disconnect(p) { var d = await Auth.post("/api/connections/disconnect", { platform: p }); if (d.ok) { conns = d.connections; renderAccts(); notice(NAMES[p] + " is disconnected."); } else notice(d.message, true); }
+  /* One queue row per clip. Changing a row's time moves every platform for that clip together. */
+  function queueGroups() {
+    var groups = [];
+    posts.filter(function (p) { return p.status === "queued"; }).forEach(function (p) {
+      var g = groups.filter(function (x) { return x.clipId === p.clipId; })[0];
+      if (!g) { g = { clipId: p.clipId, caption: p.caption, at: p.scheduledAt, items: [] }; groups.push(g); }
+      g.items.push(p); g.at = Math.min(g.at, p.scheduledAt);
+    });
+    return groups.sort(function (a, b) { return a.at - b.at; });
+  }
+  async function eachItem(g, fn, okMsg) {
+    for (var i = 0; i < g.items.length; i++) { var d = await fn(g.items[i].id); if (!d.ok) { notice(d.message || "That didn't save. Try again.", true); await refreshPosts(); return; } applyPosts(d); }
+    if (okMsg) notice(okMsg);
+  }
+  function renderQueue() {
+    var ol = $("queueList"), groups = queueGroups(); ol.textContent = "";
+    $("qHead").hidden = !groups.length; $("lineUp").hidden = groups.length < 2;
+    groups.forEach(function (g) {
+      var li = document.createElement("li"), top = document.createElement("div"), cap = document.createElement("span"), when = document.createElement("span"), where = document.createElement("span"), acts = document.createElement("div"), edit = document.createElement("div"), inp = document.createElement("input");
+      var names = g.items.map(function (p) { return p.name; }).join(", "), label = '"' + (g.caption || "Clip") + '"';
+      top.className = "q-top"; cap.className = "cap"; cap.textContent = g.caption || "Clip"; when.className = "q-when"; when.textContent = whenText(g.at); top.append(cap, when);
+      where.className = "note"; where.textContent = names;
+      acts.className = "q-acts"; edit.className = "q-edit"; edit.hidden = true;
+      inp.type = "datetime-local"; inp.value = toLocalInput(Math.max(g.at, Date.now())); inp.min = toLocalInput(Date.now()); inp.setAttribute("aria-label", "New time for " + label);
+      acts.append(
+        mini("Change time", "", function () { edit.hidden = !edit.hidden; if (!edit.hidden) inp.focus(); }),
+        mini("Post now", "", function () { eachItem(g, function (id) { return QS.now(id); }, label + " is posting now."); }),
+        mini("Remove", "", function () { eachItem(g, function (id) { return QS.remove(id); }, label + " was removed from the queue."); })
+      );
+      edit.append(inp, mini("Save time", "go", function () {
+        var t = fromLocalInput(inp.value);
+        if (!isFinite(t)) { notice("Pick a date and time.", true); return; }
+        if (t < Date.now() - 60000) { notice("That time has already passed. Pick a time in the future.", true); return; }
+        eachItem(g, function (id) { return QS.schedule(id, t); }, label + " moved to " + whenText(Math.max(t, Date.now())) + ".");
+      }), mini("Cancel", "", function () { edit.hidden = true; }));
+      li.append(top, where, acts, edit); ol.appendChild(li);
+    });
+  }
   function renderPosts() {
+    renderQueue();
     var ol = $("postList"); ol.textContent = "";
-    posts.slice(0, 8).forEach(function (p) {
+    posts.filter(function (p) { return p.status !== "queued"; }).slice(0, 8).forEach(function (p) {
       var li = document.createElement("li"), what = document.createElement("span"), st = document.createElement("span");
       what.className = "cap"; what.textContent = p.name + ": " + (p.caption || "Clip");
-      st.className = "state " + p.status; st.textContent = { queued: "Waiting", uploading: "Uploading", posted: "Posted", failed: "Failed" }[p.status] || p.status;
+      st.className = "state " + p.status; st.textContent = { queued: "Waiting", uploading: "Uploading", posted: Auth.mode === "server" ? "Posted" : "Done (preview)", failed: "Failed" }[p.status] || p.status;
       li.append(what, st);
       if (p.status === "posted" && p.url) { var a = document.createElement("a"); a.href = p.url; a.target = "_blank"; a.rel = "noopener"; a.textContent = "View post"; a.className = "note"; li.appendChild(a); }
       if (p.status === "failed" && p.message) { var m = document.createElement("span"); m.className = "msg"; m.textContent = p.message; li.appendChild(m); }
       ol.appendChild(li);
     });
-    var busy = posts.some(function (p) { return p.status === "queued" || p.status === "uploading"; });
-    clearTimeout(pollTimer); if (busy) pollTimer = setTimeout(refreshPosts, 4000);
+    var soon = posts.some(function (p) { return p.status === "uploading" || (p.status === "queued" && p.scheduledAt < Date.now() + 60000); }), later = posts.some(function (p) { return p.status === "queued"; });
+    clearTimeout(pollTimer); if (soon || later) pollTimer = setTimeout(refreshPosts, soon ? 4000 : 30000);
   }
-  async function refreshPosts() { var d = await Auth.get("/api/posts"); if (d.ok) { posts = d.posts; renderPosts(); } }
+  async function refreshPosts() { var d = await QS.refresh(); applyPosts(d); }
   async function afterExport() {
-    if (Auth.mode !== "server" || !lastClip) return;
-    if (!conns.some(function (c) { return c.connected; })) return;
+    if (!lastClip) return;
+    if (Auth.mode !== "server") { lastClip.uploaded = true; $("postBtn").hidden = false; $("postNote").textContent = "Preview: add this clip to your upload queue to try picking when it posts."; return; }
     var clip = lastClip, anyConnected = conns.some(function (c) { return c.connected; });
     $("postNote").textContent = anyConnected ? "Uploading your clip to Cutline..." : "";
     var r; try { r = await fetch("/api/clips/file?id=" + encodeURIComponent(clip.id), { method: "POST", credentials: "same-origin", headers: { "Content-Type": clip.blob.type }, body: clip.blob }); r = await r.json(); } catch (e) { r = { ok: false, message: "Your clip didn't upload. Check your connection, then select Post to your accounts." }; }
@@ -1343,14 +1853,14 @@ window.CutlineAdminStart = function () {
     var tiktokNote = connected("tiktok") ? " Select Post to your accounts to send it to TikTok." : "";
     if (!names.length) { $("postNote").textContent = "Select Post to your accounts to upload this clip." + skipped; return; }
     var d = await Auth.post("/api/posts", { clipId: clip.id, caption: clip.caption, targets: targets });
-    if (d.ok) { posts = d.posts; renderPosts(); $("postNote").textContent = "Auto uploading to " + names.join(" and ") + "." + skipped + tiktokNote; }
+    if (d.ok) { posts = d.posts; renderPosts(); var mine = posts.filter(function (p) { return p.clipId === clip.id && p.status === "queued"; })[0]; $("postNote").textContent = (mine && mine.scheduledAt > Date.now() + 30000 ? "Queued for " + names.join(" and ") + ": " + whenText(mine.scheduledAt) + ". Change the time in your queue." : "Auto uploading to " + names.join(" and ") + ".") + skipped + tiktokNote; }
     else $("postNote").textContent = d.message + tiktokNote;
   }
 
   /* Post dialog, including the screen TikTok requires before every post */
   function postedTo(p) { return lastClip && posts.some(function (x) { return x.clipId === lastClip.id && x.platform === p && x.status !== "failed"; }); }
   function setupField(p, box, cb, nameEl) {
-    var c = conns.filter(function (x) { return x.platform === p; })[0], on = Boolean(c && c.connected);
+    var c = conns.filter(function (x) { return x.platform === p; })[0], on = Boolean(c && (c.connected || c.preview));
     $(box).hidden = !on; if (!on) { $(cb).checked = false; return; }
     $(nameEl).textContent = postedTo(p) ? "(already posted)" : c.accountName; $(cb).disabled = postedTo(p); $(cb).checked = false;
   }
@@ -1360,7 +1870,13 @@ window.CutlineAdminStart = function () {
     var v = $("postPreview"); if (v.dataset.url) URL.revokeObjectURL(v.dataset.url); v.dataset.url = URL.createObjectURL(lastClip.blob); v.src = v.dataset.url;
     setupField("youtube", "pfYoutube", "toYoutube", "ytName"); setupField("instagram", "pfInstagram", "toInstagram", "igName"); setupField("tiktok", "pfTiktok", "toTiktok", "ttName");
     $("ttFields").hidden = true; ttInfo = null; resetTikTok();
+    $("whenSel").value = "next"; $("whenAt").hidden = true; $("whenAt").value = toLocalInput(Math.max(nextOpenSpot(), Date.now() + 3600000)); $("whenAt").min = toLocalInput(Date.now()); renderWhen();
     $("postDialog").showModal();
+  }
+  function renderWhen() {
+    var pick = $("whenSel").value === "pick", slot = nextOpenSpot();
+    $("whenSel").options[0].textContent = slot > Date.now() + 30000 ? "Next open spot (" + whenText(slot) + ")" : "Right away";
+    $("whenAt").hidden = !pick; $("whenNote").textContent = pick ? "" : queueGap ? "New uploads are spaced " + $("queueGap").options[$("queueGap").selectedIndex].text + ". Change this in the Auto upload box." : "";
   }
   function resetTikTok() {
     var sel = $("ttPrivacy"); sel.length = 1; sel.selectedIndex = 0;
@@ -1369,7 +1885,7 @@ window.CutlineAdminStart = function () {
   }
   async function loadTikTok() {
     $("ttFields").hidden = false; $("ttForm").hidden = true; $("ttLoading").hidden = false; $("ttLoading").textContent = "Loading your TikTok settings...";
-    var d = await Auth.get("/api/tiktok/creator");
+    var d = await QS.creator();
     if (!$("toTiktok").checked) return;
     if (!d.ok) { $("ttLoading").textContent = d.message || "TikTok can't take new posts right now. Try again later."; $("toTiktok").checked = false; return; }
     ttInfo = d.creator;
@@ -1393,12 +1909,13 @@ window.CutlineAdminStart = function () {
   $("toTiktok").addEventListener("change", function () { if (this.checked) loadTikTok(); else $("ttFields").hidden = true; });
   ["ttDisclose", "ttYourBrand", "ttBranded"].forEach(function (id) { $(id).addEventListener("change", function () { $("ttDiscloseBox").hidden = !$("ttDisclose").checked; ttLegal(); }); });
   $("postBtn").addEventListener("click", openPost);
+  $("whenSel").addEventListener("change", renderWhen);
   $("postDialog").addEventListener("change", function () { $("postStatus").textContent = ""; });
   $("postCancel").addEventListener("click", function () { $("postDialog").close(); });
   $("postSend").addEventListener("click", async function () {
     var targets = {}, say = function (m) { $("postStatus").textContent = m; };
     if ($("toYoutube").checked) targets.youtube = { privacy: $("ytPrivacy").value };
-    if ($("toInstagram").checked) { if (lastClip.blob.type.indexOf("mp4") < 0) { say("Instagram needs an MP4 clip. Export it again in the latest Chrome or Edge."); return; } targets.instagram = {}; }
+    if ($("toInstagram").checked) { if (Auth.mode === "server" && lastClip.blob.type.indexOf("mp4") < 0) { say("Instagram needs an MP4 clip. Export it again in the latest Chrome or Edge."); return; } targets.instagram = {}; }
     if ($("toTiktok").checked) {
       if (!ttInfo) { say("Wait for your TikTok settings to load."); return; }
       if (!$("ttPrivacy").value) { say("Choose who can see your TikTok post."); $("ttPrivacy").focus(); return; }
@@ -1406,12 +1923,15 @@ window.CutlineAdminStart = function () {
       targets.tiktok = { privacy: $("ttPrivacy").value, allowComment: $("ttComment").checked, allowDuet: $("ttDuet").checked, allowStitch: $("ttStitch").checked, disclose: $("ttDisclose").checked, yourBrand: $("ttYourBrand").checked, branded: $("ttBranded").checked, consent: true };
     }
     if (!Object.keys(targets).length) { say("Choose at least one account to post to."); return; }
-    var b = this; b.disabled = true; b.textContent = "Posting..."; say("");
-    var d = await Auth.post("/api/posts", { clipId: lastClip.id, caption: $("postCaption").value.trim(), targets: targets });
-    b.disabled = false; b.textContent = "Post now";
-    if (!d.ok) { say(d.message || "That didn't post. Try again."); return; }
+    var body = { clipId: lastClip.id, caption: $("postCaption").value.trim(), targets: targets };
+    if ($("whenSel").value === "pick") { var t = fromLocalInput($("whenAt").value); if (!isFinite(t)) { say("Pick a date and time."); $("whenAt").focus(); return; } if (t < Date.now() - 60000) { say("That time has already passed. Pick a time in the future."); $("whenAt").focus(); return; } body.scheduleAt = t; }
+    var b = this; b.disabled = true; b.textContent = "Adding..."; say("");
+    var d = await QS.add(body);
+    b.disabled = false; b.textContent = "Add to queue";
+    if (!d.ok) { say(d.message || "That didn't save. Try again."); return; }
     posts = d.posts; renderPosts(); $("postDialog").close();
-    $("postNote").textContent = "Uploading to " + Object.keys(targets).map(function (p) { return NAMES[p]; }).join(", ") + ". It can take a few minutes to appear.";
+    var mine = posts.filter(function (p) { return p.clipId === lastClip.id && p.status === "queued"; })[0], list = Object.keys(targets).map(function (p) { return NAMES[p]; }).join(", ");
+    $("postNote").textContent = mine && mine.scheduledAt > Date.now() + 30000 ? "Queued for " + list + ": " + whenText(mine.scheduledAt) + ". You can change the time in your queue." : "Uploading to " + list + " now. It can take a few minutes to appear.";
   });
 
   /* Coins */
@@ -1450,11 +1970,6 @@ window.CutlineAdminStart = function () {
     else notice("Your payment went through, but the coins haven't arrived yet. Refresh in a few minutes.", true);
   }
 
-  /* Earnings estimate */
-  var money = function (n) { return (n < 0 ? "-$" : "$") + Math.abs(n).toLocaleString("en-US", { maximumFractionDigits: 0 }); };
-  function updateCalc() { var v = +$("views").value, ap = +$("approved").value, r = Math.max(0, +$("rate").value || 0), p = +$("planCost").value, gross = v / 1000 * r * ap / 100, net = gross * .9 - p, per = r * ap / 100 * .9 / 1000; $("viewsOut").textContent = v.toLocaleString("en-US"); $("approvedOut").textContent = ap + "%"; $("net").textContent = money(net); $("netDetail").textContent = "Estimated monthly take-home: " + money(gross) + " earned, minus a 10% marketplace fee and your $" + p + " plan." + (per > 0 ? " Your plan pays for itself at about " + Math.ceil(p / per).toLocaleString("en-US") + " views." : "") + " Actual pay depends on each campaign."; }
-  ["views", "approved", "rate", "planCost"].forEach(function (id) { $(id).addEventListener("input", updateCalc); });
-
   /* Free clip limit and plans */
   function openPay(limit) {
     $("payTitle").textContent = limit ? "You're out of clips" : "Get more clips";
@@ -1480,14 +1995,11 @@ window.CutlineAdminStart = function () {
   $("logoutBtn").addEventListener("click", function () { if (!S.exporting) Auth.logout(); });
   $("resetFree").addEventListener("click", function () { Auth.resetPreview(); setUsed(0); $("payDialog").close(); status("Free clips reset to 5."); });
 
-  /* Page details */
-  document.querySelectorAll('a[href^="#"]').forEach(function (a) { a.addEventListener("click", function (e) { var t = document.getElementById(a.getAttribute("href").slice(1)); if (t) { e.preventDefault(); t.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" }); } }); });
-  document.querySelectorAll(".card").forEach(function (c) { c.addEventListener("pointermove", function (e) { var r = c.getBoundingClientRect(); c.style.setProperty("--mx", (e.clientX - r.left) + "px"); c.style.setProperty("--my", (e.clientY - r.top) + "px"); }); });
-  var words = ["Live streams", "Podcasts", "Gaming", "Interviews", "Reactions", "Campaign clips"], tick = $("tick"); words.concat(words, words, words).forEach(function (w) { var s = document.createElement("span"); s.textContent = w; tick.appendChild(s); });
-  var bars = $("bars"); for (var i = 0; i < 34; i++) { var b = document.createElement("i"), hot = i > 20 && i < 27; b.style.height = (hot ? 58 + 40 * Math.abs(Math.sin(i * 1.4)) : 16 + 34 * Math.abs(Math.sin(i * 2.3))) + "%"; if (hot) b.className = "hot"; bars.appendChild(b); }
-
   S.bins = sampleBins(); resetSegs(); $("playBtn").textContent = S.playing ? "Pause" : "Play";
-  renderFree(); renderMoments(); updateCalc(); layout();
+  renderFree(); renderMoments(); layout();
+  conns = ["youtube", "instagram", "tiktok"].map(function (p) { return { platform: p, name: NAMES[p], preview: true }; }); renderAccts();
+  /* Bring back the caption a visitor typed before they signed up. */
+  try { var keptCaption = sessionStorage.getItem("cutline_try_caption"); if (keptCaption !== null && document.documentElement.classList.contains("signed-in")) { sessionStorage.removeItem("cutline_try_caption"); $("caption").value = keptCaption; $("caption").dispatchEvent(new Event("input", { bubbles: true })); } } catch (e) {}
   if ("IntersectionObserver" in window) new IntersectionObserver(function (en) { S.visible = en[0].isIntersecting; }).observe(preview);
   addEventListener("resize", function () { renderWave(); renderEditor(); });
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(layout);

@@ -1,7 +1,12 @@
 /* Cutline server. Serves the page, keeps accounts in D1, and handles Stripe checkout.
    Secrets to set in Cloudflare (Worker, Settings, Variables and Secrets):
-   ADMIN_EMAIL, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, and for reset emails RESEND_API_KEY and EMAIL_FROM. */
+   ADMIN_EMAIL, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, and for reset emails RESEND_API_KEY and EMAIL_FROM.
+   For posting to YouTube, TikTok, and Instagram, see the list at the top of src/social.js. */
 import PAGE from "./app.html";
+import PRIVACY from "./privacy.html";
+import TERMS from "./terms.html";
+import { FAVICON_SVG, ICON_PNG_BASE64, OG_JPG_BASE64 } from "./assets.js";
+import { socialPage, socialApi, runQueue, deleteUserData } from "./queue.js";
 
 const PLAN_LIMITS = { free: 5, solo: 100, pro: 500 };
 const COOKIE = "cl_session";
@@ -11,11 +16,12 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const enc = new TextEncoder();
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
     try {
-      if (url.pathname.startsWith("/api/")) return await api(request, env, url);
-      if (url.pathname.startsWith("/connect/")) return Response.redirect(url.origin + "/?connect=unavailable&platform=" + encodeURIComponent(url.pathname.split("/")[2] || ""), 302);
+      if (url.pathname.startsWith("/api/")) return await api(request, env, url, ctx);
+      if (/^\/(connect|oauth|media)\//.test(url.pathname)) return (await socialPage(request, env, url, await currentUser(request, env))) || new Response("Not found", { status: 404 });
+      if ((request.method === "GET" || request.method === "HEAD") && Object.hasOwn(STATIC_FILES, url.pathname)) return staticFile(url.pathname, request.method);
       if (request.method === "GET" && (url.pathname === "/" || url.pathname === "/index.html")) return await page(request, env);
       return new Response("Not found", { status: 404 });
     } catch (err) {
@@ -23,8 +29,27 @@ export default {
       if (url.pathname.startsWith("/api/")) return json({ ok: false, code: "server_error", message: "Something went wrong on our end. Try again in a minute." }, 500);
       return new Response("Something went wrong. Try again in a minute.", { status: 500 });
     }
+  },
+  /* Runs every minute (see wrangler.jsonc) to post queued clips when their time comes. */
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(runQueue(env));
   }
 };
+
+/* ---------- Static pages and images ---------- */
+function bytes(base64) { const bin = atob(base64); const out = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i); return out; }
+const STATIC_FILES = {
+  "/privacy.html": [() => PRIVACY, "text/html; charset=utf-8"],
+  "/terms.html": [() => TERMS, "text/html; charset=utf-8"],
+  "/favicon.svg": [() => FAVICON_SVG, "image/svg+xml"],
+  "/apple-touch-icon.png": [() => bytes(ICON_PNG_BASE64), "image/png"],
+  "/og.jpg": [() => bytes(OG_JPG_BASE64), "image/jpeg"],
+  "/robots.txt": [() => "User-agent: *\nAllow: /\n", "text/plain; charset=utf-8"]
+};
+function staticFile(path, method) {
+  const [body, type] = STATIC_FILES[path];
+  return new Response(method === "HEAD" ? null : body(), { headers: { "Content-Type": type, "Cache-Control": "public, max-age=3600", "X-Content-Type-Options": "nosniff" } });
+}
 
 /* ---------- Page ---------- */
 async function page(request, env) {
@@ -46,16 +71,17 @@ async function page(request, env) {
 }
 
 /* ---------- API ---------- */
-async function api(request, env, url) {
+async function api(request, env, url, ctx) {
   const path = url.pathname, method = request.method;
   if (path === "/api/stripe/webhook" && method === "POST") return stripeWebhook(request, env);
   if (method === "POST") {
     const origin = request.headers.get("Origin");
     if (!origin || origin !== url.origin) return json({ ok: false, code: "bad_origin", message: "That request wasn't allowed." }, 403);
   }
-  const body = method === "POST" ? await readJson(request) : {};
-  const user = await currentUser(request, env);
   const route = method + " " + path;
+  /* Clip uploads are video, not JSON, so they skip the JSON reader. */
+  const body = method === "POST" && route !== "POST /api/clips/file" ? await readJson(request) : {};
+  const user = await currentUser(request, env);
 
   switch (route) {
     case "POST /api/signup": return signup(env, body, url);
@@ -70,15 +96,14 @@ async function api(request, env, url) {
     case "GET /api/me": return json({ ok: true, user: publicUser(user, env) });
     case "POST /api/clips/claim": return claimClip(env, user);
     case "POST /api/clips/release": return releaseClip(env, user, body);
-    case "POST /api/clips/file": return json({ ok: false, message: "Saving clips to Cutline isn't available yet. Save the clip and upload it yourself." });
-    case "GET /api/connections": return json({ ok: true, connections: ["youtube", "instagram", "tiktok"].map(function (p) { return { platform: p, name: { youtube: "YouTube", instagram: "Instagram", tiktok: "TikTok" }[p], connected: false, available: false }; }), posts: [] });
-    case "GET /api/posts": return json({ ok: true, posts: [] });
     case "POST /api/import": return json({ ok: false, message: "Importing from Twitch and similar sites isn't available yet. Upload the file or paste a YouTube or direct video link." });
     case "POST /api/import-clip": return json({ ok: false, message: "Making finished clips from YouTube links isn't available yet. Your cut is saved on this page." });
     case "POST /api/plans/checkout": return planCheckout(env, user, body, url);
     case "POST /api/coins/checkout": return coinCheckout(env, user, body, url);
     case "POST /api/billing/portal": return billingPortal(env, user, url);
   }
+  const social = await socialApi(route, request, env, ctx, url, user, body);
+  if (social) return social;
   if (path.startsWith("/api/admin/")) {
     if (!isAdmin(user, env)) return json({ ok: false, code: "forbidden", message: "Only the admin can do that." }, 403);
     if (route === "GET /api/admin/users") return adminList(env);
@@ -227,6 +252,7 @@ async function adminAction(env, me, action, body) {
     if (!amount || Math.abs(amount) > 1000) return json({ ok: false, message: "Give between 1 and 1,000 coins." }, 400);
     await env.DB.prepare("UPDATE users SET coins = MAX(0, coins + ?) WHERE id = ?").bind(amount, target.id).run();
   } else if (action === "delete") {
+    await deleteUserData(env, target.id);
     await env.DB.batch([
       env.DB.prepare("DELETE FROM sessions WHERE user_id = ?").bind(target.id),
       env.DB.prepare("DELETE FROM claims WHERE user_id = ?").bind(target.id),
