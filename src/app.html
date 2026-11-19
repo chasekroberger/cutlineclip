@@ -778,7 +778,7 @@ html:not(.signed-in) .member-only { display: none !important; }
         </div>
         <form class="link-row" id="linkRow" hidden novalidate><input id="linkInput" type="url" inputmode="url" placeholder="Paste a YouTube, Twitch, or video link" aria-label="Video link"><button class="tool" type="submit">Load</button></form>
       </div>
-      <div><label class="lbl" for="caption">Caption</label><input id="caption" maxlength="70" value="He did NOT just pull that off"></div>
+      <div><label class="lbl" for="caption">Caption</label><input id="caption" maxlength="70" value="When the squad finally clutches"></div>
       <div>
         <span class="lbl" id="styleLabel">Caption style</span>
         <div class="row" role="group" aria-labelledby="styleLabel">
@@ -1479,6 +1479,7 @@ window.CutlineAdminStart = function () {
   /* Your own video */
   video.crossOrigin = "anonymous";
   function setupVideo(label, src, isLink, scan) {
+    video.muted = label === DEMO.label;
     setPlaying(false); clearResult(); clearEmbed(); status("Opening " + label + "...");
     if (video.src && video.src.indexOf("blob:") === 0) URL.revokeObjectURL(video.src);
     video.onerror = function () { status(isLink ? "That link didn't load. Paste a direct link to a video file, like one ending in .mp4, from a site that allows it." : "This browser can't play that file. Try an MP4 video."); };
@@ -1488,6 +1489,24 @@ window.CutlineAdminStart = function () {
       $("focusField").hidden = false; renderMoments(); seek(0); layout(); scan();
     };
     video.src = src;
+  }
+  /* The example video is a free Mixkit stock clip (Mixkit License, free for commercial use), served from /demo.mp4.
+     It has no sound, so its hype moments are placed by hand. If it can't load, the drawn example stays. */
+  var DEMO = { label: "the example video", src: "demo.mp4", a: 1.5, b: 10.5, focus: 32, moments: [3.2, 8.6, 12.8] };
+  function demoBins() {
+    var o = [];
+    for (var i = 0; i < BINS; i++) { var t = i / BINS * S.dur, v = .16 + .08 * Math.abs(Math.sin(i * 1.7)); DEMO.moments.forEach(function (m) { v += .72 * Math.exp(-Math.pow((t - m) / .9, 2)); }); o.push(clamp(v * (.75 + .25 * Math.abs(Math.sin(i * 12.9898))), .05, 1)); }
+    return o;
+  }
+  function loadDemo() {
+    setupVideo(DEMO.label, DEMO.src, true, function () {
+      S.a = DEMO.a; S.b = DEMO.b; S.moments = DEMO.moments.slice(); S.bins = demoBins(); resetSegs();
+      S.focus = DEMO.focus; $("focus").value = String(DEMO.focus);
+      renderMoments(); seek(S.a); layout();
+      status("Drag the white edges to trim. Blue dots mark the hype moments.");
+      if (!reduced) setPlaying(true);
+    });
+    video.onerror = function () { status(""); if (!reduced) setPlaying(true); };
   }
   function loadFile(file) {
     if (!file || S.exporting) return;
@@ -1996,7 +2015,7 @@ window.CutlineAdminStart = function () {
   $("resetFree").addEventListener("click", function () { Auth.resetPreview(); setUsed(0); $("payDialog").close(); status("Free clips reset to 5."); });
 
   S.bins = sampleBins(); resetSegs(); $("playBtn").textContent = S.playing ? "Pause" : "Play";
-  renderFree(); renderMoments(); layout();
+  renderFree(); renderMoments(); layout(); loadDemo();
   conns = ["youtube", "instagram", "tiktok"].map(function (p) { return { platform: p, name: NAMES[p], preview: true }; }); renderAccts();
   /* Bring back the caption a visitor typed before they signed up. */
   try { var keptCaption = sessionStorage.getItem("cutline_try_caption"); if (keptCaption !== null && document.documentElement.classList.contains("signed-in")) { sessionStorage.removeItem("cutline_try_caption"); $("caption").value = keptCaption; $("caption").dispatchEvent(new Event("input", { bubbles: true })); } } catch (e) {}

@@ -8,6 +8,8 @@
   ],
   // Keeps the variables and secrets you set in the Cloudflare dashboard on every deploy.
   "keep_vars": true,
+  // Files in public/ (like the example video) are served as they are.
+  "assets": { "directory": "./public" },
   // Posts queued clips to YouTube, TikTok, and Instagram every minute.
   "triggers": { "crons": ["* * * * *"] },
   "observability": { "enabled": true }
