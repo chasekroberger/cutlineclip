@@ -84,8 +84,8 @@ async function api(request, env, url, ctx) {
   const user = await currentUser(request, env);
 
   switch (route) {
-    case "POST /api/signup": return signup(env, body, url);
-    case "POST /api/login": return login(env, body, url);
+    case "POST /api/signup": return signup(env, body, url, ctx);
+    case "POST /api/login": return login(env, body, url, ctx);
     case "POST /api/logout": return logout(request, env);
     case "POST /api/forgot": return forgot(env, body, url);
     case "POST /api/reset": return resetPassword(env, body);
@@ -107,13 +107,15 @@ async function api(request, env, url, ctx) {
   if (path.startsWith("/api/admin/")) {
     if (!isAdmin(user, env)) return json({ ok: false, code: "forbidden", message: "Only the admin can do that." }, 403);
     if (route === "GET /api/admin/users") return adminList(env);
+    if (route === "GET /api/admin/stripe") return stripeStatus(env, url);
+    if (route === "POST /api/admin/stripe/link") return linkAllToStripe(env);
     if (method === "POST") return adminAction(env, user, path.slice("/api/admin/users/".length), body);
   }
   return json({ ok: false, code: "not_found", message: "That isn't available." }, 404);
 }
 
 /* ---------- Accounts ---------- */
-async function signup(env, body, url) {
+async function signup(env, body, url, ctx) {
   const email = cleanEmail(body.email), password = String(body.password || "");
   if (!email) return json({ ok: false, message: "Enter a valid email address, like name@example.com." }, 400);
   if (password.length < 8 || password.length > 200) return json({ ok: false, message: "Use a password with at least 8 characters." }, 400);
@@ -126,10 +128,11 @@ async function signup(env, body, url) {
   } catch (e) {
     return json({ ok: false, message: "An account with this email already exists. Log in instead." }, 409);
   }
+  linkStripeLater(env, ctx, { id: id, email: email, stripe_customer: null });
   return json({ ok: true }, 200, { "Set-Cookie": await newSession(env, id) });
 }
 
-async function login(env, body, url) {
+async function login(env, body, url, ctx) {
   const email = cleanEmail(body.email), password = String(body.password || "");
   const bad = json({ ok: false, message: "That email or password is incorrect." }, 401);
   if (!email || !password) return bad;
@@ -147,6 +150,7 @@ async function login(env, body, url) {
     env.DB.prepare("DELETE FROM sessions WHERE expires_at < ?").bind(nowSec()),
     env.DB.prepare("UPDATE users SET last_login = ? WHERE id = ?").bind(new Date().toISOString(), user.id)
   ]);
+  if (!user.stripe_customer) linkStripeLater(env, ctx, user);
   return json({ ok: true }, 200, { "Set-Cookie": await newSession(env, user.id) });
 }
 
@@ -232,9 +236,9 @@ async function bump(env, sql, id, n) {
 
 /* ---------- Admin ---------- */
 async function adminList(env) {
-  const { results } = await env.DB.prepare("SELECT id, email, plan, free_used, plan_used, coins, is_admin, created_at, last_login FROM users ORDER BY created_at DESC LIMIT 5000").all();
+  const { results } = await env.DB.prepare("SELECT id, email, plan, free_used, plan_used, coins, is_admin, stripe_customer, created_at, last_login FROM users ORDER BY created_at DESC LIMIT 5000").all();
   return json({ ok: true, users: results.map(function (u) {
-    return { id: u.id, email: u.email, plan: u.plan, role: isAdmin(u, env) ? "admin" : "user", clipsUsed: u.plan === "free" ? u.free_used : u.plan_used, coins: u.coins, createdAt: u.created_at, lastLogin: u.last_login };
+    return { id: u.id, email: u.email, plan: u.plan, role: isAdmin(u, env) ? "admin" : "user", clipsUsed: u.plan === "free" ? u.free_used : u.plan_used, coins: u.coins, stripe: Boolean(u.stripe_customer), createdAt: u.created_at, lastLogin: u.last_login };
   }) });
 }
 
@@ -313,6 +317,36 @@ async function customerFor(env, user) {
   const c = await stripe(env, "customers", { email: user.email, metadata: { user_id: user.id } }, "POST");
   await env.DB.prepare("UPDATE users SET stripe_customer = ? WHERE id = ?").bind(c.id, user.id).run();
   return c.id;
+}
+
+/* Every account gets a matching Stripe Customer as soon as it signs up (or next logs in), so purchases, receipts and
+   the billing portal all line up with the Cutline account. It runs in the background and never blocks signup. */
+function linkStripeLater(env, ctx, user) {
+  if (!env.STRIPE_SECRET_KEY || !ctx || user.stripe_customer) return;
+  ctx.waitUntil(customerFor(env, user).catch(function (e) { console.error("stripe link", user.email, e.message); }));
+}
+
+async function linkAllToStripe(env) {
+  if (!env.STRIPE_SECRET_KEY) return json({ ok: false, message: "Add STRIPE_SECRET_KEY in Cloudflare first." });
+  const { results } = await env.DB.prepare("SELECT id, email, stripe_customer FROM users WHERE stripe_customer IS NULL LIMIT 100").all();
+  let linked = 0, failed = 0, lastError = "";
+  for (const u of results) { try { await customerFor(env, u); linked++; } catch (e) { failed++; lastError = e.message; } }
+  return json({ ok: failed === 0, linked: linked, failed: failed, message: failed ? "Linked " + linked + ", but " + failed + " failed: " + lastError : "Linked " + linked + (linked === 1 ? " account" : " accounts") + " to Stripe." });
+}
+
+async function stripeStatus(env, url) {
+  const key = String(env.STRIPE_SECRET_KEY || "");
+  const out = {
+    ok: true, key: Boolean(key), restricted: key.indexOf("rk_") === 0,
+    mode: /^(sk|rk)_live_/.test(key) ? "live" : /^(sk|rk)_test_/.test(key) ? "test" : key ? "unknown" : null,
+    webhook: Boolean(env.STRIPE_WEBHOOK_SECRET), resend: Boolean(env.RESEND_API_KEY && env.EMAIL_FROM),
+    webhookUrl: url.origin + "/api/stripe/webhook", reachable: false, reachError: ""
+  };
+  if (key) { try { await stripe(env, "customers", { limit: 1 }, "GET"); out.reachable = true; } catch (e) { out.reachError = e.message; } }
+  const counts = await env.DB.prepare("SELECT COUNT(*) AS total, SUM(CASE WHEN stripe_customer IS NOT NULL THEN 1 ELSE 0 END) AS linked FROM users").first();
+  const last = await env.DB.prepare("SELECT MAX(created_at) AS at FROM stripe_events").first();
+  out.total = counts.total || 0; out.linked = counts.linked || 0; out.lastEvent = last && last.at || null;
+  return json(out);
 }
 
 function integrationId() { let s = ""; const a = crypto.getRandomValues(new Uint8Array(8)); for (const b of a) s += String.fromCharCode(97 + b % 26); return "cutline-checkout-" + s; }

@@ -252,6 +252,15 @@ details p { margin-top: 8px; color: var(--dim); max-width: 60ch; }
 .admin-bar .tool { flex: 0 0 auto; }
 #adminStatus { margin-top: 10px; font-size: 15px; font-weight: 600; color: var(--cyan); }
 #adminStatus:empty { display: none; }
+.setup-box { margin-top: 16px; padding: 18px 20px; border-radius: 18px; border: 1px solid var(--stroke); background: var(--panel-solid); }
+.setup-box h3 { font-size: 18px; }
+.setup-box ul { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 7px; font-size: 15px; }
+.setup-box li { display: grid; grid-template-columns: 22px minmax(0, 1fr); align-items: start; }
+.setup-box li::before { content: "\2713"; font-weight: 800; color: #0a9a62; }
+.setup-box li.bad::before { content: "\2715"; color: #e0156f; }
+.setup-box li.wait::before { content: "\2022"; color: var(--dim); }
+.setup-box .note { margin-top: 10px; overflow-wrap: anywhere; }
+.setup-box .tool { margin-top: 12px; flex: 0 0 auto; }
 .admin-table { margin-top: 12px; overflow-x: auto; border-radius: 18px; border: 1px solid var(--stroke); background: rgba(16,13,28,.72); }
 .admin-table table { width: 100%; min-width: 720px; border-collapse: collapse; font-size: 15px; }
 .admin-table th { text-align: left; padding: 12px 14px; color: var(--dim); font-weight: 600; border-bottom: 1px solid var(--stroke); }
@@ -867,7 +876,8 @@ html:not(.signed-in) .member-only { display: none !important; }
     </div>
     <div class="admin-bar"><label for="adminSearch">Find an account</label><input id="adminSearch" type="search" placeholder="Search by email"><button class="tool" id="adminRefresh" type="button">Refresh</button></div>
     <p id="adminStatus" role="status"></p>
-    <div class="admin-table"><table><thead><tr><th scope="col">Email</th><th scope="col">Plan</th><th scope="col">Clips</th><th scope="col">Coins</th><th scope="col">Joined</th><th scope="col">Actions</th></tr></thead><tbody id="adminRows"></tbody></table></div>
+    <div class="setup-box" id="stripeSetup" hidden><h3>Stripe setup</h3><ul id="setupList"></ul><p class="note" id="setupHook"></p><button class="tool" id="linkAll" type="button" hidden>Link all accounts to Stripe</button></div>
+    <div class="admin-table"><table><thead><tr><th scope="col">Email</th><th scope="col">Plan</th><th scope="col">Clips</th><th scope="col">Coins</th><th scope="col">Stripe</th><th scope="col">Joined</th><th scope="col">Actions</th></tr></thead><tbody id="adminRows"></tbody></table></div>
   </section>
   <!--ADMIN-END-->
   <section id="features" class="wrap">
@@ -1221,7 +1231,7 @@ window.CutlineAdminStart = function () {
     var q = $("adminSearch").value.trim().toLowerCase(), body = $("adminRows"); body.textContent = "";
     $("statUsers").textContent = rows.length; $("statPaid").textContent = rows.filter(function (u) { return u.plan !== "free" && u.role !== "admin"; }).length; $("statClips").textContent = rows.reduce(function (n, u) { return n + u.clipsUsed; }, 0);
     var shown = rows.filter(function (u) { return u.email.indexOf(q) > -1; });
-    if (!shown.length) { var tr0 = body.insertRow(), td0 = tr0.insertCell(); td0.colSpan = 6; td0.textContent = "No accounts match that search."; return; }
+    if (!shown.length) { var tr0 = body.insertRow(), td0 = tr0.insertCell(); td0.colSpan = 7; td0.textContent = "No accounts match that search."; return; }
     shown.forEach(function (u) {
       var tr = body.insertRow(), admin = u.role === "admin";
       tr.insertCell().textContent = u.email;
@@ -1230,6 +1240,7 @@ window.CutlineAdminStart = function () {
       else { var sel = document.createElement("select"); sel.setAttribute("aria-label", "Plan for " + u.email); [["free", "Free"], ["solo", "Solo"], ["pro", "Pro"]].forEach(function (p) { var o = new Option(p[1], p[0]); o.selected = u.plan === p[0]; sel.add(o); }); sel.addEventListener("change", function () { run("plan", { id: u.id, plan: sel.value }, u.email + " is now on " + sel.options[sel.selectedIndex].text + "."); }); planCell.appendChild(sel); }
       tr.insertCell().textContent = admin ? u.clipsUsed + " (unlimited)" : u.clipsUsed;
       tr.insertCell().textContent = admin ? "Not needed" : (u.coins || 0);
+      tr.insertCell().textContent = Auth.mode !== "server" ? "" : u.stripe ? "Linked" : "Not yet";
       tr.insertCell().textContent = u.createdAt ? new Date(u.createdAt).toLocaleDateString() : "";
       var acts = tr.insertCell(), wrap = document.createElement("div"); wrap.className = "row-acts"; acts.appendChild(wrap);
       if (admin) { wrap.textContent = "Your account"; return; }
@@ -1241,8 +1252,30 @@ window.CutlineAdminStart = function () {
   }
   async function load() { try { rows = await store.list(); render(); } catch (e) { say(e.message || "Accounts couldn't load. Select Refresh to try again."); } }
   $("adminSearch").addEventListener("input", render);
-  $("adminRefresh").addEventListener("click", function () { say(""); load(); });
-  load();
+  $("adminRefresh").addEventListener("click", function () { say(""); load(); loadSetup(); });
+  /* Stripe setup check: shows which pieces are connected without ever showing the keys. */
+  function item(text, state) { var li = document.createElement("li"); li.textContent = text; if (state) li.className = state; $("setupList").appendChild(li); }
+  async function loadSetup() {
+    if (Auth.mode !== "server") return;
+    var d = await Auth.get("/api/admin/stripe"); if (!d.ok) return;
+    $("stripeSetup").hidden = false; $("setupList").textContent = "";
+    if (!d.key) item("Stripe key missing. Add STRIPE_SECRET_KEY in Cloudflare, under Settings, Variables and Secrets.", "bad");
+    else {
+      item("Stripe key added (" + (d.mode === "live" ? "live, real charges" : d.mode === "test" ? "test mode" : "unknown type") + (d.restricted ? ", restricted" : "") + ")");
+      item(d.reachable ? "Stripe accepted the key" : "Stripe rejected the key: " + (d.reachError || "unknown error"), d.reachable ? "" : "bad");
+    }
+    item(d.webhook ? "Webhook secret added" : "Webhook secret missing. Add STRIPE_WEBHOOK_SECRET in Cloudflare.", d.webhook ? "" : "bad");
+    item(d.lastEvent ? "Last Stripe event received " + new Date(d.lastEvent).toLocaleString() : "No Stripe events received yet. You'll see one after the first purchase.", d.lastEvent ? "" : "wait");
+    item(d.linked + " of " + d.total + " accounts linked to Stripe", d.linked >= d.total ? "" : "wait");
+    $("setupHook").textContent = "Webhook address for Stripe: " + d.webhookUrl;
+    $("linkAll").hidden = !(d.key && d.reachable && d.linked < d.total);
+  }
+  $("linkAll").addEventListener("click", async function () {
+    var b = this; b.disabled = true; b.textContent = "Linking...";
+    var d = await Auth.post("/api/admin/stripe/link", {});
+    b.disabled = false; b.textContent = "Link all accounts to Stripe"; say(d.message || "Done."); load(); loadSetup();
+  });
+  load(); loadSetup();
 };
 </script>
 <!--ADMIN-END-->
