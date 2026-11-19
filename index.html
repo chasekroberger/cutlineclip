@@ -1,0 +1,1460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cutline Clipping App</title>
+<meta name="description" content="Turn long videos into vertical clips with captions. Your first 5 clips are free.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anybody:ital,wdth,wght@0,50..150,400..900;1,50..150,400..900&family=Geist:wght@400..700&display=swap" rel="stylesheet">
+<style>
+/* Layout idea: a giant split headline drops straight into a floating, working studio. */
+:root {
+  color-scheme: dark;
+  --void: #07060d;
+  --panel: rgba(255,255,255,.055);
+  --panel-solid: #14121f;
+  --stroke: rgba(255,255,255,.13);
+  --text: #f7f5ff;
+  --dim: #b4b0cc;
+  --pink: #ff2e88;
+  --violet: #8a5cff;
+  --cyan: #27e8f2;
+  --flare: linear-gradient(100deg, #ff2e88, #8a5cff 52%, #27e8f2);
+  --display: "Anybody", "Arial Black", Arial, sans-serif;
+  --body: "Geist", "Helvetica Neue", Arial, sans-serif;
+  --gutter: clamp(16px, 3.4vw, 48px);
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { scroll-behavior: smooth; background: var(--void); overflow-x: clip; }
+body { margin: 0; background: var(--void); color: var(--text); font-family: var(--body); font-size: 17px; line-height: 1.5; overflow-x: clip; }
+h1, h2, h3, p { margin: 0; }
+h2 { font-family: var(--display); font-weight: 900; font-style: italic; font-stretch: 108%; text-transform: uppercase; font-size: clamp(32px, 5.4vw, 76px); line-height: .98; letter-spacing: -.02em; text-wrap: balance; }
+h3 { font-size: 21px; font-weight: 650; letter-spacing: -.015em; line-height: 1.2; }
+a { color: inherit; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
+.wrap { width: min(100%, 1400px); margin-inline: auto; padding-inline: var(--gutter); }
+
+.aurora { position: fixed; inset: 0; z-index: -1; overflow: hidden; background: var(--void); }
+.aurora i { position: absolute; border-radius: 50%; filter: blur(110px); opacity: .42; animation: drift 22s ease-in-out infinite alternate; }
+.aurora i:nth-child(1) { width: 52vw; height: 52vw; left: -14vw; top: -18vw; background: var(--pink); }
+.aurora i:nth-child(2) { width: 46vw; height: 46vw; right: -12vw; top: 8vh; background: #3d2bd6; animation-delay: -8s; }
+.aurora i:nth-child(3) { width: 34vw; height: 34vw; left: 34vw; top: 70vh; background: #0d8fa8; opacity: .3; animation-delay: -14s; }
+.aurora::after { content: ""; position: absolute; inset: 0; opacity: .13; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E"); }
+@keyframes drift { to { transform: translate3d(7vw, 6vh, 0) scale(1.14); } }
+
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 10px 24px; border-radius: 999px; border: 1px solid transparent; font-weight: 650; text-decoration: none; line-height: 1.15; text-align: center; transition: transform .16s ease, box-shadow .16s ease, background .16s ease; }
+.btn:hover { transform: translateY(-2px); }
+.btn-white { background: var(--text); color: #0b0914; box-shadow: 0 8px 34px rgba(255,255,255,.2); }
+.btn-ghost { background: rgba(255,255,255,.07); border-color: var(--stroke); backdrop-filter: blur(10px); }
+.btn-ghost:hover { background: rgba(255,255,255,.14); }
+.btn-flare { background: var(--flare); color: #fff; box-shadow: 0 10px 38px rgba(255,46,136,.38); }
+.btn[disabled] { opacity: .55; cursor: not-allowed; transform: none; }
+
+.nav-shell { position: sticky; top: 12px; z-index: 20; padding-inline: var(--gutter); margin-top: 12px; }
+.nav { width: min(100%, 1304px); margin-inline: auto; display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 8px 8px 8px 18px; border-radius: 999px; border: 1px solid var(--stroke); background: rgba(16,13,28,.68); backdrop-filter: blur(18px) saturate(150%); }
+.brand { display: inline-flex; align-items: center; gap: 9px; font-family: var(--display); font-style: italic; font-weight: 900; font-size: 21px; text-transform: uppercase; text-decoration: none; }
+.brand svg { width: 22px; height: 22px; }
+.nav-links { display: flex; align-items: center; gap: 24px; font-size: 15px; font-weight: 550; color: var(--dim); }
+.nav-links a:not(.btn) { text-decoration: none; }
+.nav-links a:not(.btn):hover { color: var(--text); }
+.nav-links .btn { min-height: 40px; padding: 7px 18px; color: #0b0914; }
+
+.hero { padding-top: clamp(38px, 6vw, 80px); }
+h1 { font-family: var(--display); font-weight: 900; font-style: italic; font-stretch: 112%; text-transform: uppercase; font-size: clamp(32px, 9.2vw, 150px); line-height: .92; letter-spacing: -.03em; }
+h1 span { display: block; white-space: nowrap; }
+h1 .l1 { text-shadow: -3px 0 rgba(39,232,242,.75), 3px 0 rgba(255,46,136,.75); animation: split 1.1s cubic-bezier(.2,.8,.2,1) both; }
+h1 .l2 { text-align: right; background: var(--flare); -webkit-background-clip: text; background-clip: text; color: transparent; padding-right: .06em; }
+@keyframes split { 0% { text-shadow: -26px 0 rgba(39,232,242,.9), 26px 0 rgba(255,46,136,.9); } 100% { text-shadow: -3px 0 rgba(39,232,242,.75), 3px 0 rgba(255,46,136,.75); } }
+.hero-sub { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 18px 36px; margin-top: 26px; }
+.hero-sub p { max-width: 35em; font-size: clamp(17px, 1.5vw, 21px); line-height: 1.38; color: #dedbef; }
+.cta-row { display: flex; flex-wrap: wrap; gap: 10px; }
+
+.studio { position: relative; margin-top: 36px; padding: clamp(12px, 1.5vw, 20px); border-radius: 30px; border: 1px solid var(--stroke); background: rgba(15,12,26,.74); backdrop-filter: blur(26px); box-shadow: 0 40px 120px rgba(0,0,0,.55), 0 0 90px rgba(138,92,255,.2); display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr) 292px minmax(0, 1fr); grid-template-areas: "edit phone side" "time time time" "cut cut cut"; }
+.studio.dragover { box-shadow: 0 0 0 2px var(--cyan), 0 0 90px rgba(39,232,242,.35); }
+.box { background: var(--panel); border: 1px solid rgba(255,255,255,.08); border-radius: 20px; padding: 16px; min-width: 0; }
+.edit { grid-area: edit; display: flex; flex-direction: column; gap: 16px; }
+.side { grid-area: side; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.phone-wrap { grid-area: phone; position: relative; }
+.phone-wrap::before { content: ""; position: absolute; inset: 8% -8%; background: var(--flare); filter: blur(46px); opacity: .5; }
+.phone { position: relative; aspect-ratio: 9 / 16; border-radius: 30px; padding: 6px; background: linear-gradient(150deg, #3a3650, #100e1a); box-shadow: 0 20px 60px rgba(0,0,0,.6); }
+.phone canvas { display: block; width: 100%; height: 100%; border-radius: 24px; background: #000; }
+.embed { position: absolute; inset: 6px; z-index: 0; border-radius: 24px; overflow: hidden; background: #000; }
+.embed iframe { position: absolute; top: 0; left: -108%; width: 316.05%; height: 100%; border: 0; pointer-events: none; }
+.phone.embed-on canvas { position: relative; z-index: 1; background: transparent; pointer-events: none; }
+.lbl { display: block; font-size: 14px; font-weight: 600; color: var(--dim); margin-bottom: 7px; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; }
+.tool { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; padding: 8px 15px; border-radius: 12px; border: 1px solid var(--stroke); background: rgba(255,255,255,.07); font-weight: 600; font-size: 15px; flex: 1 1 auto; position: relative; }
+.tool:hover { background: rgba(255,255,255,.15); }
+.tool input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; font-size: 0; }
+.tool:focus-within { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.link-row { display: flex; gap: 8px; margin-top: 8px; }
+.link-row input { flex: 1 1 auto; min-width: 0; min-height: 44px; border-radius: 12px; border: 1px solid var(--stroke); background: rgba(0,0,0,.34); padding: 8px 12px; }
+.link-row .tool { flex: 0 0 auto; }
+#caption { width: 100%; min-height: 48px; border-radius: 12px; border: 1px solid var(--stroke); background: rgba(0,0,0,.34); padding: 10px 13px; }
+.chip { flex: 1 1 0; min-height: 44px; border-radius: 12px; border: 1px solid var(--stroke); background: transparent; font-weight: 600; font-size: 15px; }
+.chip[aria-pressed=true] { background: var(--text); color: #0b0914; border-color: var(--text); }
+input[type=range] { width: 100%; height: 26px; accent-color: var(--pink); margin: 0; }
+.export { background: linear-gradient(145deg, rgba(255,46,136,.2), rgba(39,232,242,.09)); }
+.export h3 { font-size: 18px; }
+.clip-time { margin: 3px 0 12px; font-size: 15px; color: var(--dim); font-variant-numeric: tabular-nums; }
+.export .btn { width: 100%; }
+#saveBtn { margin-top: 8px; }
+.bar { height: 5px; border-radius: 9px; background: rgba(255,255,255,.14); overflow: hidden; margin-top: 10px; }
+.bar i { display: block; height: 100%; width: 0; background: var(--flare); }
+.queue { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.queue-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.queue-head h3 { font-size: 18px; }
+.tip { margin-top: auto; }
+.queue-count, .note { font-size: 13.5px; color: var(--dim); }
+
+.timeline { grid-area: time; padding: 14px 24px 12px; }
+.editor { grid-area: cut; display: grid; gap: 10px; padding: 16px 24px 12px; }
+.ed-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 10px 24px; }
+.ed-head h3 { font-size: 18px; }
+.ed-head .note { margin-top: 2px; max-width: 52ch; }
+.ed-tools { display: flex; flex-wrap: wrap; gap: 8px; }
+.ed-tools .tool { flex: 0 0 auto; }
+.ed-tools .tool:disabled { opacity: .45; cursor: not-allowed; }
+.ed-track { position: relative; height: 118px; border-radius: 14px; touch-action: none; user-select: none; cursor: pointer; }
+.ed-track canvas { display: block; width: 100%; height: 100%; }
+.ed-status { font-size: 14px; color: var(--dim); font-variant-numeric: tabular-nums; }
+.track { position: relative; height: 104px; touch-action: none; user-select: none; cursor: pointer; }
+.track canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.region { position: absolute; top: 8px; height: 74px; border-radius: 4px; border-block: 2px solid var(--text); background: rgba(255,255,255,.1); box-shadow: 0 0 34px rgba(255,46,136,.55); cursor: grab; }
+.handle { position: absolute; top: -2px; width: 15px; height: 74px; border: 0; padding: 0; background: var(--text); cursor: ew-resize; touch-action: none; }
+.handle::after { content: ""; position: absolute; left: 6px; top: 26px; width: 3px; height: 22px; border-radius: 2px; background: #0b0914; }
+.handle-in { left: -15px; border-radius: 9px 0 0 9px; }
+.handle-out { right: -15px; border-radius: 0 9px 9px 0; }
+.playhead { position: absolute; top: 2px; width: 2px; height: 86px; background: var(--cyan); box-shadow: 0 0 12px var(--cyan); pointer-events: none; }
+.moment { position: absolute; top: -3px; width: 20px; height: 20px; transform: translateX(-50%); border-radius: 50%; padding: 0; border: 3px solid #14121f; background: var(--cyan); box-shadow: 0 0 14px var(--cyan); z-index: 3; }
+.moment:hover { background: #fff; }
+.deck-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 3px 22px; font-size: 14px; color: var(--dim); }
+#deckStatus { color: var(--text); font-weight: 550; }
+.studio.exporting .edit, .studio.exporting .timeline, .studio.exporting .editor, .studio.exporting #queueBox { pointer-events: none; opacity: .5; }
+
+.ticker { margin-top: clamp(48px, 7vw, 86px); overflow: hidden; border-block: 1px solid var(--stroke); padding-block: 12px; }
+.ticker div { display: flex; width: max-content; gap: 46px; animation: slide 34s linear infinite; font-family: var(--display); font-style: italic; font-weight: 800; font-size: clamp(22px, 3vw, 38px); text-transform: uppercase; white-space: nowrap; color: transparent; -webkit-text-stroke: 1px rgba(255,255,255,.55); }
+@keyframes slide { to { transform: translateX(-50%); } }
+
+section { padding-block: clamp(70px, 9vw, 130px); }
+.bento { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 14px; margin-top: 40px; }
+.card { --mx: 50%; --my: 0%; position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 8px; min-height: 290px; padding: 22px; border-radius: 24px; border: 1px solid var(--stroke); background: radial-gradient(420px circle at var(--mx) var(--my), rgba(138,92,255,.26), transparent 70%), rgba(255,255,255,.045); backdrop-filter: blur(12px); grid-column: span 2; }
+.card.wide { grid-column: span 3; }
+.card p { color: var(--dim); max-width: 42ch; }
+.pill { align-self: flex-start; font-size: 13px; font-weight: 650; padding: 3px 10px; border-radius: 999px; margin-bottom: auto; }
+.pill.now { color: #06242a; background: var(--cyan); }
+.pill.next { color: var(--text); border: 1px solid var(--stroke); }
+.viz { height: 96px; margin-block: 16px 10px; display: flex; align-items: center; }
+.bars { gap: 4px; width: 100%; }
+.bars i { flex: 1; border-radius: 3px; background: rgba(255,255,255,.2); }
+.bars i.hot { background: var(--flare); background-attachment: fixed; box-shadow: 0 0 14px rgba(255,46,136,.6); }
+.crop { justify-content: center; }
+.crop b { position: relative; display: block; width: 170px; height: 96px; border-radius: 9px; border: 1px solid var(--stroke); background: linear-gradient(120deg, #2a2346, #15324a); }
+.crop b::after { content: ""; position: absolute; top: -6px; bottom: -6px; left: 57px; width: 60px; border-radius: 8px; border: 2px solid var(--cyan); box-shadow: 0 0 22px rgba(39,232,242,.7); }
+.capdemo { font-family: var(--display); font-style: italic; font-weight: 900; font-size: 27px; line-height: 1; text-transform: uppercase; color: #fff; text-shadow: 3px 3px 0 var(--pink), -2px -2px 0 var(--violet); }
+.file { gap: 12px; }
+.file b { font-size: 17px; font-weight: 650; padding: 13px 16px; border-radius: 14px; background: rgba(255,255,255,.1); font-variant-numeric: tabular-nums; }
+.slots { gap: 6px; width: 100%; }
+.slots i { flex: 1; height: 62px; border-radius: 10px; border: 1px dashed var(--stroke); }
+.slots i.on { border: 0; background: var(--flare); opacity: .85; }
+
+.earn-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(30px, 6vw, 90px); align-items: center; }
+.earn-grid > div > p { margin-top: 18px; color: #dedbef; font-size: 19px; line-height: 1.4; max-width: 31em; }
+.calc { display: grid; gap: 18px; padding: clamp(18px, 2.6vw, 30px); border-radius: 28px; border: 1px solid var(--stroke); background: rgba(16,13,28,.72); backdrop-filter: blur(20px); }
+.field label { display: flex; justify-content: space-between; gap: 12px; font-weight: 600; }
+.field output { color: var(--cyan); font-variant-numeric: tabular-nums; }
+.calc-two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.calc input[type=number], .calc select { width: 100%; min-height: 46px; margin-top: 6px; padding: 8px 11px; border-radius: 12px; border: 1px solid var(--stroke); background: var(--panel-solid); }
+.result { border-top: 1px solid var(--stroke); padding-top: 16px; }
+.result-big { font-family: var(--display); font-style: italic; font-weight: 900; font-size: clamp(48px, 7vw, 92px); line-height: 1.04; background: var(--flare); -webkit-background-clip: text; background-clip: text; color: transparent; font-variant-numeric: tabular-nums; padding-right: .12em; width: fit-content; max-width: 100%; }
+.result p { margin-top: 8px; font-size: 15px; color: var(--dim); }
+
+.plans { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 40px; align-items: stretch; }
+.plan { display: flex; flex-direction: column; gap: 14px; padding: 26px; border-radius: 26px; border: 1px solid var(--stroke); background: rgba(255,255,255,.045); backdrop-filter: blur(12px); }
+.plan.main { position: relative; border-color: transparent; background: linear-gradient(#15112a, #15112a) padding-box, var(--flare) border-box; box-shadow: 0 20px 80px rgba(255,46,136,.28); }
+.price { font-family: var(--display); font-style: italic; font-weight: 900; font-size: 62px; line-height: 1; }
+.price small { font-family: var(--body); font-style: normal; font-size: 16px; font-weight: 500; color: var(--dim); }
+.plan ul { margin: 0; padding-left: 19px; display: grid; gap: 5px; flex: 1; color: #dedbef; }
+.fine { margin-top: 26px; font-size: 15px; color: var(--dim); }
+
+.faq-grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 40px; }
+details { border-bottom: 1px solid var(--stroke); padding-block: 17px; }
+summary { list-style: none; display: flex; justify-content: space-between; gap: 18px; font-size: 19px; font-weight: 600; cursor: pointer; }
+summary::-webkit-details-marker { display: none; }
+summary::after { content: "+"; font-size: 26px; line-height: .9; color: var(--cyan); transition: transform .2s ease; }
+details[open] summary::after { transform: rotate(45deg); }
+details p { margin-top: 8px; color: var(--dim); max-width: 60ch; }
+
+.cta-card { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(26px, 5vw, 70px); align-items: center; padding: clamp(24px, 5vw, 68px); border-radius: 36px; background: var(--flare); box-shadow: 0 30px 120px rgba(138,92,255,.42); }
+.cta-card > div > p { margin-top: 16px; font-size: 20px; line-height: 1.35; max-width: 27em; }
+.gate { min-height: 100vh; min-height: 100dvh; display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: clamp(28px, 6vw, 90px); align-items: center; padding-block: 32px; }
+.gate[hidden] { display: none; }
+.gate .brand { margin-bottom: clamp(24px, 4vw, 44px); }
+.gate h1 { font-size: clamp(32px, 4.6vw, 72px); }
+.gate-pitch > p { margin-top: 24px; max-width: 30em; font-size: clamp(17px, 1.5vw, 21px); line-height: 1.38; color: #dedbef; }
+.auth { padding: clamp(18px, 2.6vw, 30px); border-radius: 28px; border: 1px solid var(--stroke); background: rgba(16,13,28,.78); backdrop-filter: blur(24px); box-shadow: 0 30px 110px rgba(138,92,255,.3); }
+.auth-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; margin-bottom: 20px; border-radius: 999px; background: rgba(255,255,255,.07); }
+.auth-tabs button { min-height: 44px; border: 0; border-radius: 999px; background: none; font-weight: 650; color: var(--dim); }
+.auth-tabs button[aria-selected=true] { background: var(--text); color: #0b0914; }
+#authForm, #resetForm { display: grid; gap: 15px; }
+#authForm label, #resetForm label { display: block; font-weight: 600; font-size: 15px; }
+#resetForm h3 { font-size: 22px; }
+#resetForm .hint { margin-top: 6px; }
+.forgot-row { margin-top: -8px; text-align: right; }
+#authForm input[type=email], #resetForm input, .pw input { width: 100%; min-height: 50px; margin-top: 5px; padding: 10px 13px; border-radius: 12px; border: 1px solid var(--stroke); background: var(--panel-solid); }
+.pw { position: relative; }
+.pw input { padding-right: 68px; }
+.pw button { position: absolute; right: 6px; top: 11px; min-height: 38px; padding: 4px 10px; border: 0; background: none; color: var(--cyan); font-weight: 650; font-size: 14.5px; }
+.hint { margin-top: 5px; font-size: 14px; color: var(--dim); }
+#authForm .check { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 9px; align-items: start; font-weight: 500; line-height: 1.35; }
+#authForm .check[hidden] { display: none; }
+.check input { width: 20px; height: 20px; margin: 1px 0 0; accent-color: var(--pink); }
+#authForm .btn, #resetForm .btn { width: 100%; border: 0; }
+#authStatus, #resetStatus { color: #ff8fbd; font-weight: 600; font-size: 15px; }
+#authStatus.ok, #resetStatus.ok { color: var(--cyan); }
+#authStatus:empty, #resetStatus:empty { display: none; }
+#resetBack { justify-self: center; }
+.acct { max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+.nav-links .btn-ghost { color: var(--text); }
+@media (max-width: 1080px) { .acct { display: none; } }
+@media (max-width: 760px) { .gate { grid-template-columns: minmax(0, 1fr); align-items: start; } .gate h1 { font-size: clamp(32px, 9.2vw, 72px); } }
+@media (max-width: 480px) { .nav-links .btn-white { display: none; } }
+.nav-links a.admin-link { display: inline; color: var(--cyan); font-weight: 650; }
+.admin-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 30px; }
+.admin-stats div { padding: 18px; border-radius: 18px; border: 1px solid var(--stroke); background: rgba(16,13,28,.72); }
+.admin-stats b { display: block; font-family: var(--display); font-style: italic; font-weight: 900; font-size: clamp(32px, 4vw, 52px); line-height: 1.05; font-variant-numeric: tabular-nums; }
+.admin-stats span { color: var(--dim); font-size: 15px; }
+.admin-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 18px; }
+.admin-bar label { font-weight: 600; font-size: 15px; }
+.admin-bar input { flex: 1 1 220px; min-height: 44px; padding: 8px 13px; border-radius: 12px; border: 1px solid var(--stroke); background: var(--panel-solid); }
+.admin-bar .tool { flex: 0 0 auto; }
+#adminStatus { margin-top: 10px; font-size: 15px; font-weight: 600; color: var(--cyan); }
+#adminStatus:empty { display: none; }
+.admin-table { margin-top: 12px; overflow-x: auto; border-radius: 18px; border: 1px solid var(--stroke); background: rgba(16,13,28,.72); }
+.admin-table table { width: 100%; min-width: 720px; border-collapse: collapse; font-size: 15px; }
+.admin-table th { text-align: left; padding: 12px 14px; color: var(--dim); font-weight: 600; border-bottom: 1px solid var(--stroke); }
+.admin-table td { padding: 9px 14px; border-bottom: 1px solid rgba(255,255,255,.07); font-variant-numeric: tabular-nums; }
+.admin-table tr:last-child td { border-bottom: 0; }
+.admin-table td:first-child { overflow-wrap: anywhere; font-weight: 550; }
+.admin-table select { min-height: 38px; padding: 4px 8px; border-radius: 9px; border: 1px solid var(--stroke); background: var(--panel-solid); }
+.row-acts { display: flex; gap: 8px; }
+.row-acts button { min-height: 36px; padding: 4px 11px; border-radius: 9px; border: 1px solid var(--stroke); background: rgba(255,255,255,.07); font-size: 14px; font-weight: 600; white-space: nowrap; }
+.row-acts button.danger { color: #ff8fbd; }
+.row-acts button.armed { background: var(--pink); border-color: var(--pink); color: #fff; }
+.you { color: var(--cyan); font-weight: 650; }
+@media (max-width: 620px) { .admin-stats { grid-template-columns: minmax(0, 1fr); } }
+.accts { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 6px; }
+.accts li { display: grid; gap: 4px; padding: 8px 10px; border-radius: 11px; background: rgba(0,0,0,.28); }
+.acct-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.acct-top b { font-size: 15px; }
+.acct-who { font-size: 13px; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acct-who.on { color: var(--cyan); }
+.acct-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.mini { min-height: 34px; padding: 4px 12px; border-radius: 9px; border: 1px solid var(--stroke); background: rgba(255,255,255,.08); font-size: 14px; font-weight: 600; }
+.mini.go { background: var(--text); color: #0b0914; border-color: var(--text); }
+.mini.armed { background: var(--pink); border-color: var(--pink); color: #fff; }
+.mini-check { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; }
+.mini-check input { width: 18px; height: 18px; accent-color: var(--pink); }
+.posts { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 5px; max-height: 150px; overflow-y: auto; }
+.posts:empty { display: none; }
+.posts li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 1px 8px; font-size: 13.5px; padding: 6px 2px; border-top: 1px solid rgba(255,255,255,.07); }
+.posts .cap { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--dim); }
+.posts .msg { grid-column: 1 / -1; color: #ff8fbd; }
+.state { font-weight: 650; font-size: 12.5px; padding: 1px 8px; border-radius: 999px; align-self: start; }
+.state.queued, .state.uploading { background: rgba(138,92,255,.3); }
+.state.posted { background: var(--cyan); color: #06242a; }
+.state.failed { background: rgba(255,46,136,.3); color: #ffc2da; }
+.post-note:empty { display: none; }
+.post-note { margin-top: 8px; }
+#postBtn { margin-top: 8px; width: 100%; }
+.notice { margin-top: 16px; padding-block: 12px; border-radius: 14px; background: rgba(39,232,242,.12); border: 1px solid rgba(39,232,242,.35); font-weight: 600; width: min(calc(100% - 2 * var(--gutter)), 1304px); }
+.notice.bad { background: rgba(255,46,136,.14); border-color: rgba(255,46,136,.45); }
+.coins-strip { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 14px 30px; align-items: center; margin-top: 18px; padding: 22px 26px; border-radius: 26px; border: 1px solid var(--stroke); background: rgba(255,255,255,.045); }
+.coins-strip p { color: var(--dim); margin-top: 4px; }
+.coin-packs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.coin { display: grid; gap: 2px; min-width: 104px; padding: 12px 14px; border-radius: 16px; border: 1px solid var(--stroke); background: rgba(255,255,255,.06); text-align: left; }
+.coin:hover { background: rgba(255,255,255,.13); }
+.coin b { font-size: 17px; }
+.coin span { color: var(--cyan); font-weight: 650; font-variant-numeric: tabular-nums; }
+.coin-status { grid-column: 1 / -1; font-weight: 600; color: #ff8fbd; }
+.coin-status:empty { display: none; }
+dialog .coin-packs { margin-top: 18px; }
+.or { margin-top: 16px; font-size: 14px; color: var(--dim); }
+dialog .pay-plans { margin-top: 8px; grid-template-columns: 1fr 1fr; }
+#postDialog { width: min(94vw, 760px); max-height: 92vh; overflow-y: auto; }
+.post-grid { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 20px; margin-top: 16px; }
+#postPreview { width: 100%; aspect-ratio: 9 / 16; border-radius: 16px; background: #000; }
+.post-fields { display: grid; gap: 12px; align-content: start; }
+.plabel { display: block; font-weight: 600; font-size: 14.5px; margin-bottom: 5px; }
+#postCaption, #postDialog select { width: 100%; min-height: 44px; padding: 9px 12px; border-radius: 12px; border: 1px solid var(--stroke); background: var(--panel-solid); resize: vertical; }
+.pf { padding: 12px; border-radius: 14px; border: 1px solid var(--stroke); display: grid; gap: 10px; }
+.pf-body { display: grid; gap: 8px; }
+.pf small { color: var(--dim); font-weight: 500; }
+#postDialog .check { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 9px; align-items: start; font-weight: 600; line-height: 1.35; }
+#postDialog .check input { width: 18px; height: 18px; margin: 1px 0 0; accent-color: var(--pink); }
+#postDialog .check input:disabled + span { opacity: .45; }
+#ttForm { display: grid; gap: 9px; }
+#ttForm[hidden] { display: none; }
+.tt-row { display: flex; flex-wrap: wrap; gap: 8px 18px; }
+.tt-row .check { font-weight: 500 !important; }
+.tt-disclose { display: grid; gap: 8px; padding-left: 28px; }
+.tt-disclose[hidden] { display: none; }
+.tt-legal a { color: var(--cyan); }
+.post-status { font-weight: 600; color: #ff8fbd; }
+.post-status:empty { display: none; }
+@media (max-width: 760px) { .coins-strip { grid-template-columns: minmax(0, 1fr); } .post-grid { grid-template-columns: minmax(0, 1fr); } #postPreview { max-width: 180px; } }
+@media (max-width: 480px) { .coin-packs, dialog .pay-plans { grid-template-columns: minmax(0, 1fr); } }
+.start-cta { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; }
+.cta-card .btn-ghost { background: rgba(10,8,20,.32); }
+.free { margin: -6px 0 12px; font-size: 14.5px; font-weight: 650; color: var(--cyan); font-variant-numeric: tabular-nums; }
+.free.out { color: #ff8fbd; }
+dialog { width: min(92vw, 470px); padding: 26px; border-radius: 26px; border: 1px solid var(--stroke); background: #14121f; color: var(--text); box-shadow: 0 30px 120px rgba(255,46,136,.4); }
+dialog::backdrop { background: rgba(5,4,12,.72); backdrop-filter: blur(8px); }
+dialog h3 { font-size: 25px; }
+#payText { margin-top: 8px; color: var(--dim); }
+.pay-plans { display: grid; gap: 10px; margin-top: 18px; }
+#payStatus { margin-top: 12px; font-size: 15px; font-weight: 600; color: #ff8fbd; }
+#payStatus:empty { display: none; }
+.pay-foot { display: flex; justify-content: flex-end; gap: 18px; margin-top: 14px; }
+.linkish { border: 0; background: none; padding: 6px 2px; color: var(--dim); font-size: 14.5px; text-decoration: underline; }
+footer { padding-block: 10px 34px; color: var(--dim); font-size: 14.5px; }
+footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 30px; }
+.initials { font-family: var(--display); font-style: italic; font-weight: 800; letter-spacing: .08em; color: var(--dim); }
+.gate-initials { grid-column: 1 / -1; text-align: center; font-size: 14.5px; margin-top: 8px; }
+
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .card, .plan, .calc { animation: rise linear both; animation-timeline: view(); animation-range: entry 0% entry 42%; }
+    @keyframes rise { from { transform: translateY(34px) scale(.975); } to { transform: none; } }
+  }
+}
+@media (max-width: 1080px) {
+  .studio { grid-template-columns: 250px minmax(0, 1fr); grid-template-areas: "phone side" "time time" "cut cut" "edit edit"; }
+  .card, .card.wide { grid-column: span 3; }
+  .nav-links a:not(.btn) { display: none; }
+}
+@media (max-width: 760px) {
+  .earn-grid, .faq-grid, .cta-card, .plans { grid-template-columns: minmax(0, 1fr); }
+  .card, .card.wide { grid-column: 1 / -1; min-height: 250px; }
+}
+@media (max-width: 620px) {
+  body { font-size: 16px; }
+  .studio { grid-template-columns: minmax(0, 1fr); grid-template-areas: "phone" "time" "cut" "edit" "side"; border-radius: 24px; }
+  .phone-wrap { width: min(250px, 78%); margin-inline: auto; }
+  .hero-sub .cta-row, .hero-sub .btn { width: 100%; }
+  .timeline, .editor { padding-inline: 20px; }
+  .ed-tools, .ed-tools .tool { width: 100%; }
+  .calc-two { grid-template-columns: minmax(0, 1fr); }
+  h1 .l1 { text-shadow: -2px 0 rgba(39,232,242,.75), 2px 0 rgba(255,46,136,.75); animation: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .aurora i, .ticker div, h1 .l1 { animation: none; }
+  .btn { transition: none; }
+}
+</style>
+</head>
+<body>
+<!--SERVER-MODE-->
+<div class="aurora" aria-hidden="true"><i></i><i></i><i></i></div>
+<main class="gate wrap" id="gate">
+  <div class="gate-pitch">
+    <div class="brand"><svg viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="g2" x1="0" x2="1"><stop stop-color="#ff2e88"/><stop offset="1" stop-color="#27e8f2"/></linearGradient></defs><path fill="url(#g2)" d="M9 2H2v20h7v-4H6V6h3zM15 2h7v20h-7v-4h3V6h-3z"/><rect x="11" width="2" height="24" fill="#fff"/></svg>Cutline</div>
+    <h1><span class="l1">Streams in.</span><span class="l2">Clips out.</span></h1>
+    <p>Create a free account to turn your videos into vertical clips with captions. Your first 5 clips are free.</p>
+  </div>
+  <section class="auth" aria-label="Your account">
+    <div class="auth-tabs" role="tablist">
+      <button type="button" role="tab" id="tabSignup" aria-selected="true">Create account</button>
+      <button type="button" role="tab" id="tabLogin" aria-selected="false">Log in</button>
+    </div>
+    <form id="authForm" novalidate>
+      <div><label for="authEmail">Email</label><input id="authEmail" name="email" type="email" autocomplete="username" required></div>
+      <div><label for="authPassword">Password</label>
+        <div class="pw"><input id="authPassword" name="password" type="password" autocomplete="new-password" required><button type="button" id="pwToggle" aria-pressed="false">Show</button></div>
+        <p class="hint" id="pwHint">Use at least 8 characters.</p></div>
+      <p class="forgot-row" id="forgotRow" hidden><button type="button" class="linkish" id="forgotBtn">Forgot password?</button></p>
+      <label class="check" id="rightsRow"><input id="authRights" type="checkbox"><span>I'll only upload videos I own or have permission to use.</span></label>
+      <button class="btn btn-flare" id="authSubmit" type="submit">Create free account</button>
+      <p id="authStatus" role="alert"></p>
+      <p class="hint" id="previewNote" hidden>Preview mode: accounts stay in this browser, so use a test password.</p>
+    </form>
+    <form id="resetForm" hidden novalidate>
+      <div><h3>Reset your password</h3><p class="hint" id="resetText"></p></div>
+      <div id="resetEmailRow"><label for="resetEmail">Email</label><input id="resetEmail" name="email" type="email" autocomplete="username" required></div>
+      <div id="resetPwRow"><label for="resetPassword">New password</label><input id="resetPassword" name="new-password" type="password" autocomplete="new-password" required><p class="hint">Use at least 8 characters.</p></div>
+      <button class="btn btn-flare" id="resetSubmit" type="submit">Reset password</button>
+      <p id="resetStatus" role="alert"></p>
+      <button class="linkish" id="resetBack" type="button">Back to log in</button>
+    </form>
+  </section>
+  <p class="initials gate-initials">SC · CK</p>
+</main>
+<!--APP-START-->
+<div id="appRoot" hidden>
+<div class="nav-shell" id="top">
+  <nav class="nav" aria-label="Main">
+    <a class="brand" href="#top"><svg viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="g" x1="0" x2="1"><stop stop-color="#ff2e88"/><stop offset="1" stop-color="#27e8f2"/></linearGradient></defs><path fill="url(#g)" d="M9 2H2v20h7v-4H6V6h3zM15 2h7v20h-7v-4h3V6h-3z"/><rect x="11" width="2" height="24" fill="#fff"/></svg>Cutline</a>
+    <div class="nav-links">
+      <a href="#features">Features</a><a href="#earnings">Earnings</a><a href="#pricing">Pricing</a><a href="#faq">FAQ</a>
+      <!--ADMIN-START--><a class="admin-link" id="adminLink" href="#admin" hidden>Admin</a><!--ADMIN-END--><span class="acct" id="acctEmail"></span><button class="btn btn-ghost" id="logoutBtn" type="button">Log out</button>
+      <a class="btn btn-white" href="#studio">Make a free clip</a>
+    </div>
+  </nav>
+</div>
+
+<header class="hero wrap">
+  <h1><span class="l1">Streams in.</span><span class="l2">Clips out.</span></h1>
+  <div class="hero-sub">
+    <p>Turn videos you have permission to use into vertical clips with captions. Your first 5 clips are free, and auto upload to TikTok is coming soon.</p>
+    <div class="cta-row"><a class="btn btn-white" href="#studio">Make a free clip</a><a class="btn btn-ghost" href="#pricing">See pricing</a></div>
+  </div>
+
+  <div class="studio" id="studio">
+    <div class="edit box">
+      <div>
+        <span class="lbl">Video</span>
+        <div class="row">
+          <label class="tool">Upload video<input id="fileInput" type="file" accept="video/*" aria-label="Upload video"></label>
+          <button class="tool" id="linkToggle" type="button" aria-expanded="false" aria-controls="linkRow">Add link</button>
+          <button class="tool" id="playBtn" type="button">Pause</button>
+        </div>
+        <form class="link-row" id="linkRow" hidden novalidate><input id="linkInput" type="url" inputmode="url" placeholder="Paste a YouTube, Twitch, or video link" aria-label="Video link"><button class="tool" type="submit">Load</button></form>
+      </div>
+      <div><label class="lbl" for="caption">Caption</label><input id="caption" maxlength="70" value="He did NOT just pull that off"></div>
+      <div>
+        <span class="lbl" id="styleLabel">Caption style</span>
+        <div class="row" role="group" aria-labelledby="styleLabel">
+          <button class="chip" type="button" data-style="bold" aria-pressed="true">Bold</button>
+          <button class="chip" type="button" data-style="neon" aria-pressed="false">Neon</button>
+          <button class="chip" type="button" data-style="box" aria-pressed="false">Box</button>
+        </div>
+      </div>
+      <div id="focusField" hidden><label class="lbl" for="focus">Frame position</label><input id="focus" type="range" min="0" max="100" value="50"></div>
+      <p class="note tip">Works best in the latest Chrome or Edge on a computer. Exporting takes as long as your clip plays.</p>
+    </div>
+
+    <div class="phone-wrap"><div class="phone" id="phone"><div class="embed" id="embedBox" hidden></div><canvas id="preview" width="720" height="1280" role="img" aria-label="Vertical preview of your clip with its caption"></canvas></div></div>
+
+    <div class="side">
+      <div class="export box">
+        <h3>Your clip</h3>
+        <p class="clip-time"><span id="clipLen">0:24</span> long, starts at <span id="clipAt">1:24</span></p>
+        <p class="free" id="freeLeft"></p>
+        <button class="btn btn-flare" id="exportBtn" type="button">Export clip</button>
+        <button class="btn btn-white" id="saveBtn" type="button" hidden>Save clip</button>
+        <button class="btn btn-ghost" id="postBtn" type="button" hidden>Post to your accounts</button>
+        <p class="note post-note" id="postNote" role="status"></p>
+        <div class="bar" id="bar" hidden><i id="barFill"></i></div>
+      </div>
+      <div class="queue box" id="queueBox">
+        <div class="queue-head" id="accounts"><h3>Auto upload</h3><span class="queue-count" id="acctCount"></span></div>
+        <ul class="accts" id="accts"></ul>
+        <ol class="posts" id="postList"></ol>
+      </div>
+    </div>
+
+    <div class="timeline box">
+      <div class="track" id="track">
+        <canvas id="wave"></canvas>
+        <div class="region" id="region">
+          <button class="handle handle-in" id="hIn" type="button" role="slider" aria-label="Clip start" aria-valuemin="0"></button>
+          <button class="handle handle-out" id="hOut" type="button" role="slider" aria-label="Clip end" aria-valuemin="0"></button>
+        </div>
+        <div class="playhead" id="playhead"></div>
+      </div>
+      <div class="deck-foot">
+        <span id="deckStatus" role="status">Drag the white edges to trim. Blue dots mark the loudest moments.</span>
+        <span>Your video stays on your device.</span>
+      </div>
+    </div>
+
+    <div class="editor box" id="editor">
+      <div class="ed-head">
+        <div><h3>Edit your clip</h3><p class="note">Split at the playhead, then cut out any piece. Drag a split line to fine-tune where the clip picks back up.</p></div>
+        <div class="ed-tools">
+          <button class="tool" id="splitBtn" type="button">Split at playhead</button>
+          <button class="tool" id="cutBtn" type="button">Cut out piece</button>
+          <button class="tool" id="resetCutsBtn" type="button">Undo all cuts</button>
+        </div>
+      </div>
+      <div class="ed-track" id="edTrack" tabindex="0" role="group" aria-label="Clip editor. Left and right arrows move the playhead, S splits, Delete cuts out the selected piece." aria-describedby="edStatus"><canvas id="edCanvas"></canvas></div>
+      <p class="ed-status" id="edStatus" role="status"></p>
+    </div>
+  </div>
+</header>
+
+<div class="ticker" aria-hidden="true"><div id="tick"></div></div>
+
+<p class="notice wrap" id="notice" role="status" hidden></p>
+<main>
+  <!--ADMIN-START-->
+  <section id="admin" class="wrap" hidden>
+    <h2>Admin</h2>
+    <div class="admin-stats">
+      <div><b id="statUsers">0</b><span>Accounts</span></div>
+      <div><b id="statPaid">0</b><span>On paid plans</span></div>
+      <div><b id="statClips">0</b><span>Clips exported</span></div>
+    </div>
+    <div class="admin-bar"><label for="adminSearch">Find an account</label><input id="adminSearch" type="search" placeholder="Search by email"><button class="tool" id="adminRefresh" type="button">Refresh</button></div>
+    <p id="adminStatus" role="status"></p>
+    <div class="admin-table"><table><thead><tr><th scope="col">Email</th><th scope="col">Plan</th><th scope="col">Clips</th><th scope="col">Coins</th><th scope="col">Joined</th><th scope="col">Actions</th></tr></thead><tbody id="adminRows"></tbody></table></div>
+  </section>
+  <!--ADMIN-END-->
+  <section id="features" class="wrap">
+    <h2>Everything between the stream and the post</h2>
+    <div class="bento">
+      <article class="card wide"><span class="pill now">Works today</span><div class="viz bars" id="bars"></div><h3>Find the loudest moments</h3><p>Cutline scans your video's audio and marks the spikes worth checking first.</p></article>
+      <article class="card wide"><span class="pill now">Works today</span><div class="viz crop"><b></b></div><h3>Reframe for vertical</h3><p>Slide the frame to keep the action centered in a 9:16 clip.</p></article>
+      <article class="card"><span class="pill now">Works today</span><div class="viz"><span class="capdemo">Wait for it</span></div><h3>Burn in captions</h3><p>Pick a style and your caption is built into the video.</p></article>
+      <article class="card"><span class="pill now">Works today</span><div class="viz file"><b>720 × 1280</b></div><h3>Export with sound</h3><p>Save a finished clip, then upload it to TikTok yourself.</p></article>
+      <article class="card"><span class="pill now">Connect your accounts</span><div class="viz slots"><i class="on"></i><i></i><i class="on"></i><i></i><i class="on"></i></div><h3>Auto upload</h3><p>Connect YouTube and Instagram to upload every clip automatically. TikTok posts after one tap to confirm.</p></article>
+    </div>
+  </section>
+
+  <section id="earnings" class="wrap earn-grid">
+    <div><h2>See what your views could pay</h2><p>Paid clipping campaigns usually pay per 1,000 approved views. Enter your numbers to estimate a month after fees and your plan.</p></div>
+    <div class="calc">
+      <div class="field"><label for="views">Views per month <output id="viewsOut" for="views"></output></label><input id="views" type="range" min="0" max="2000000" step="10000" value="250000"></div>
+      <div class="field"><label for="approved">Views approved for payment <output id="approvedOut" for="approved"></output></label><input id="approved" type="range" min="10" max="100" step="5" value="70"></div>
+      <div class="calc-two">
+        <div class="field"><label for="rate">Pay per 1,000 views ($)</label><input id="rate" type="number" min="0" max="50" step="0.05" value="1.00"></div>
+        <div class="field"><label for="planCost">Cutline plan</label><select id="planCost"><option value="19">Solo, $19/mo</option><option value="49">Pro, $49/mo</option></select></div>
+      </div>
+      <div class="result" aria-live="polite"><div class="result-big" id="net"></div><p id="netDetail"></p></div>
+    </div>
+  </section>
+
+  <section id="pricing" class="wrap">
+    <h2>5 clips free. Then pick a plan.</h2>
+    <div class="plans">
+      <div class="plan"><h3>Free trial</h3><div class="price">$0</div><ul><li>5 finished clips</li><li>Captions and vertical reframing</li><li>No card needed</li></ul><a class="btn btn-ghost" href="#studio">Make a free clip</a></div>
+      <div class="plan main"><h3>Solo</h3><div class="price">$19 <small>per month</small></div><ul><li>100 clips a month</li><li>Captions and vertical reframing</li><li>Auto upload to YouTube, Instagram, and TikTok</li></ul><button class="btn btn-flare" type="button" data-plan="solo">Choose Solo</button></div>
+      <div class="plan"><h3>Pro</h3><div class="price">$49 <small>per month</small></div><ul><li>500 clips a month</li><li>Captions and vertical reframing</li><li>Auto upload to YouTube, Instagram, and TikTok</li></ul><button class="btn btn-ghost" type="button" data-plan="pro">Choose Pro</button></div>
+    </div>
+    <div class="coins-strip">
+      <div><h3>Need more clips? Buy coins.</h3><p>1 coin makes 1 extra clip after your free or plan clips run out. Coins never expire.</p></div>
+      <div class="coin-packs">
+        <button class="coin" type="button" data-pack="starter"><b>10 coins</b><span>$5</span></button>
+        <button class="coin" type="button" data-pack="creator"><b>50 coins</b><span>$20</span></button>
+        <button class="coin" type="button" data-pack="studio"><b>200 coins</b><span>$60</span></button>
+      </div>
+      <p class="coin-status" id="coinStatus" role="status"></p>
+    </div>
+  </section>
+
+  <section id="faq" class="wrap faq-grid">
+    <h2>Questions clippers ask</h2>
+    <div>
+      <details open><summary>How does auto upload work?</summary><p>Connect your YouTube, Instagram, or TikTok account. Every clip you export uploads to YouTube and Instagram automatically. TikTok requires you to review and confirm each post, so it takes one tap.</p></details>
+      <details><summary>Which Instagram accounts work?</summary><p>Instagram only lets apps post to Business or Creator accounts. You can switch for free in the Instagram app under Settings, Account type and tools.</p></details>
+      <details><summary>What happens after my 5 free clips?</summary><p>Buy coins to make more clips, 1 coin per clip, or choose a monthly plan.</p></details>
+      <details><summary>Can I paste a YouTube or Twitch link?</summary><p>Yes. Select Add link and paste it. Direct video links load right away, and YouTube, Twitch, and similar links import through your Cutline account. Only use videos you own, have permission to use, or received through a campaign that allows clipping.</p></details>
+      <details><summary>Which browsers work best?</summary><p>Use the latest Chrome or Edge on a computer. Keep the tab open while your clip exports, because it takes as long as the clip plays.</p></details>
+      <details><summary>Does Cutline guarantee views or payouts?</summary><p>No. Views depend on your clips and TikTok's recommendations, and each campaign decides which views it pays for.</p></details>
+    </div>
+  </section>
+
+  <section id="start" class="wrap">
+    <div class="cta-card">
+      <div><h2>Your first 5 clips are free</h2><p>Upload a video, make your cut, and export it in minutes. No card needed.</p></div>
+      <div class="start-cta"><a class="btn btn-white" href="#studio">Make a free clip</a><a class="btn btn-ghost" href="#pricing">See pricing</a></div>
+    </div>
+  </section>
+</main>
+<dialog id="payDialog" aria-labelledby="payTitle">
+  <h3 id="payTitle">You've used your 5 free clips</h3>
+  <p id="payText">Choose a plan to keep exporting clips.</p>
+  <div class="coin-packs">
+    <button class="coin" type="button" data-pack="starter"><b>10 coins</b><span>$5</span></button>
+    <button class="coin" type="button" data-pack="creator"><b>50 coins</b><span>$20</span></button>
+    <button class="coin" type="button" data-pack="studio"><b>200 coins</b><span>$60</span></button>
+  </div>
+  <p class="or">Or choose a monthly plan</p>
+  <div class="pay-plans">
+    <button class="btn btn-ghost" type="button" data-plan="solo">Solo, $19/month</button>
+    <button class="btn btn-ghost" type="button" data-plan="pro">Pro, $49/month</button>
+  </div>
+  <p id="payStatus" role="status"></p>
+  <div class="pay-foot"><button class="linkish" id="resetFree" type="button" hidden>Reset free clips for testing</button><button class="linkish" id="payClose" type="button">Close</button></div>
+</dialog>
+
+<dialog id="postDialog" aria-labelledby="postTitle">
+  <h3 id="postTitle">Post your clip</h3>
+  <div class="post-grid">
+    <video id="postPreview" muted playsinline controls aria-label="Preview of your clip"></video>
+    <div class="post-fields">
+      <div><label class="plabel" for="postCaption">Caption and hashtags</label><textarea id="postCaption" rows="3" maxlength="2200"></textarea></div>
+      <div class="pf" id="pfYoutube" hidden>
+        <label class="check"><input type="checkbox" id="toYoutube"><span>YouTube <small id="ytName"></small></span></label>
+        <div class="pf-body"><label class="plabel" for="ytPrivacy">Who can watch</label><select id="ytPrivacy"><option value="public">Public</option><option value="unlisted">Unlisted</option><option value="private">Private</option></select></div>
+      </div>
+      <div class="pf" id="pfInstagram" hidden>
+        <label class="check"><input type="checkbox" id="toInstagram"><span>Instagram Reels <small id="igName"></small></span></label>
+      </div>
+      <div class="pf" id="pfTiktok" hidden>
+        <label class="check"><input type="checkbox" id="toTiktok"><span>TikTok <small id="ttName"></small></span></label>
+        <div class="pf-body" id="ttFields" hidden>
+          <p class="note" id="ttLoading">Loading your TikTok settings...</p>
+          <div id="ttForm" hidden>
+            <p class="tt-who">Posting to <b id="ttNick"></b></p>
+            <label class="plabel" for="ttPrivacy">Who can see this post</label>
+            <select id="ttPrivacy"><option value="" selected disabled>Choose who can see it</option></select>
+            <span class="plabel">Allow viewers to</span>
+            <div class="tt-row">
+              <label class="check"><input type="checkbox" id="ttComment"><span>Comment</span></label>
+              <label class="check"><input type="checkbox" id="ttDuet"><span>Duet</span></label>
+              <label class="check"><input type="checkbox" id="ttStitch"><span>Stitch</span></label>
+            </div>
+            <label class="check"><input type="checkbox" id="ttDisclose"><span>This post promotes a brand, product, or service</span></label>
+            <div class="tt-disclose" id="ttDiscloseBox" hidden>
+              <label class="check"><input type="checkbox" id="ttYourBrand"><span>Your brand: you're promoting yourself or your own business</span></label>
+              <label class="check"><input type="checkbox" id="ttBranded"><span>Branded content: you're promoting another brand or a third party</span></label>
+              <p class="note" id="ttLabel"></p>
+            </div>
+            <p class="note tt-legal" id="ttLegal"></p>
+          </div>
+        </div>
+      </div>
+      <p class="note">Uploads can take a few minutes to appear on your profiles.</p>
+      <p class="post-status" id="postStatus" role="alert"></p>
+    </div>
+  </div>
+  <div class="pay-foot"><button class="linkish" id="postCancel" type="button">Cancel</button><button class="btn btn-flare" id="postSend" type="button">Post now</button></div>
+</dialog>
+
+<footer><div class="wrap"><span>Cutline</span><span>Not affiliated with TikTok, YouTube, or Twitch.</span><span class="initials">SC · CK</span></div></footer>
+</div>
+<!--APP-END-->
+
+<script>
+/* Accounts: uses the Cutline server when it's running, and a browser-only preview otherwise. */
+window.CutlineAuth = (function () {
+  "use strict";
+  var server = window.CUTLINE_SERVER, mode = server ? "server" : "preview", LIMIT = 5, ready = null, user = server && server.user || null;
+  var $ = function (id) { return document.getElementById(id); }, signup = true, memory = {};
+  function read(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return memory[k] || null; } }
+  function write(k, v) { memory[k] = v; try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+  var ACC = "cutline_preview_accounts", SES = "cutline_preview_session";
+  function accounts() { return read(ACC) || {}; }
+  function hex(b) { return Array.from(new Uint8Array(b)).map(function (x) { return x.toString(16).padStart(2, "0"); }).join(""); }
+  async function derive(pw, salt) { var k = await crypto.subtle.importKey("raw", new TextEncoder().encode(pw), "PBKDF2", false, ["deriveBits"]); return hex(await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: new TextEncoder().encode(salt), iterations: 150000 }, k, 256)); }
+  var PLAN_LIMITS = { free: 5, solo: 100, pro: 500 }, PREVIEW_ADMIN = "admin@cutline.test";
+  function previewUser(email) { var a = accounts()[email]; if (!a) return null; var admin = email === PREVIEW_ADMIN, plan = a.plan || "free"; return { email: email, plan: plan, role: admin ? "admin" : "user", clipsUsed: a.used || 0, clipLimit: admin ? null : PLAN_LIMITS[plan] }; }
+  async function post(path, body) {
+    try { var r = await fetch(path, { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) }); var d = await r.json(); d.status = r.status; return d; }
+    catch (e) { return { ok: false, code: "network", message: "Couldn't reach Cutline. Check your connection and try again." }; }
+  }
+  function reveal() {
+    $("gate").hidden = true; var app = $("appRoot"); app.hidden = false; $("acctEmail").textContent = user.email;
+    if (ready) ready(user);
+  }
+  function setTab(isSignup) {
+    signup = isSignup; $("tabSignup").setAttribute("aria-selected", String(isSignup)); $("tabLogin").setAttribute("aria-selected", String(!isSignup));
+    $("rightsRow").hidden = !isSignup; $("pwHint").hidden = !isSignup; $("authSubmit").textContent = isSignup ? "Create free account" : "Log in";
+    $("authPassword").autocomplete = isSignup ? "new-password" : "current-password"; $("authStatus").textContent = ""; $("authStatus").className = "";
+    $("forgotRow").hidden = isSignup;
+  }
+  /* Saved passwords: browsers offer to save after a successful login, and Chrome and Edge can fill it back in next time. */
+  async function saveCred(id, pw) {
+    try { if (window.PasswordCredential && navigator.credentials && navigator.credentials.store) await Promise.race([navigator.credentials.store(new PasswordCredential({ id: id, password: pw, name: id })), new Promise(function (ok) { setTimeout(ok, 1200); })]); } catch (e) {}
+  }
+  function fillSaved() {
+    try {
+      if (!window.PasswordCredential || !navigator.credentials || !navigator.credentials.get) return;
+      navigator.credentials.get({ password: true, mediation: "optional" }).then(function (c) {
+        if (!c || c.type !== "password" || user || !$("resetForm").hidden) return;
+        setTab(false); $("authEmail").value = c.id; $("authPassword").value = c.password;
+        $("authStatus").textContent = "Your saved login is filled in. Select Log in."; $("authStatus").className = "ok";
+      }).catch(function () {});
+    } catch (e) {}
+  }
+  /* Forgot password */
+  var resetToken = null;
+  function showReset(on) {
+    $("authForm").hidden = on; document.querySelector(".auth-tabs").hidden = on; $("resetForm").hidden = !on;
+    if (!on) return;
+    var hasToken = Boolean(resetToken), local = mode === "preview";
+    $("resetEmailRow").hidden = hasToken; $("resetPwRow").hidden = !(hasToken || local); $("resetPassword").value = "";
+    $("resetText").textContent = hasToken ? "Choose a new password for your account." : local ? "Preview mode: accounts live in this browser, so you can set a new password right here." : "Enter your email and we'll send you a link to reset your password.";
+    $("resetSubmit").textContent = hasToken || local ? "Save new password" : "Send reset link";
+    $("resetStatus").textContent = ""; $("resetStatus").className = "";
+    $("resetEmail").value = $("authEmail").value.trim();
+    (hasToken ? $("resetPassword") : $("resetEmail")).focus();
+  }
+  function backToLogin(msg, email) {
+    resetToken = null; showReset(false); setTab(false);
+    if (email) $("authEmail").value = email; $("authPassword").value = "";
+    if (msg) { $("authStatus").textContent = msg; $("authStatus").className = "ok"; }
+    $("authPassword").focus();
+  }
+  $("forgotBtn").addEventListener("click", function () { showReset(true); });
+  $("resetBack").addEventListener("click", function () { if (resetToken) history.replaceState(null, "", location.pathname + location.hash); backToLogin(); });
+  $("resetForm").addEventListener("submit", async function (e) {
+    e.preventDefault();
+    var st = $("resetStatus"), say = function (m, ok) { st.textContent = m; st.className = ok ? "ok" : ""; };
+    var email = $("resetEmail").value.trim().toLowerCase(), pw = $("resetPassword").value, needPw = Boolean(resetToken) || mode === "preview";
+    if (!resetToken && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { say("Enter a valid email address, like name@example.com."); $("resetEmail").focus(); return; }
+    if (needPw && pw.length < 8) { say("Use a password with at least 8 characters."); $("resetPassword").focus(); return; }
+    var btn = $("resetSubmit"), label = btn.textContent; btn.disabled = true; btn.textContent = "Working..."; say("");
+    try {
+      if (mode === "preview") {
+        var all = accounts(); if (!all[email]) { say("No account uses that email in this browser. Check the spelling or create an account."); return; }
+        var salt = hex(crypto.getRandomValues(new Uint8Array(16))); all[email].salt = salt; all[email].hash = await derive(pw, salt); write(ACC, all);
+        await saveCred(email, pw); backToLogin("Password updated. Log in with your new password.", email);
+      } else if (resetToken) {
+        var d = await post("/api/reset", { token: resetToken, password: pw });
+        if (!d.ok) { say(d.message || "That reset link expired. Go back and request a new one."); return; }
+        history.replaceState(null, "", location.pathname + location.hash);
+        if (d.email) await saveCred(d.email, pw);
+        backToLogin("Password updated. Log in with your new password.", d.email || "");
+      } else {
+        var r = await post("/api/forgot", { email: email });
+        if (r.code === "network") { say(r.message); return; }
+        say("If an account uses that email, a reset link is on its way. Check your inbox and spam folder.", true);
+      }
+    } finally { btn.disabled = false; btn.textContent = label; }
+  });
+  async function previewAuth(email, password, rights) {
+    var all = accounts();
+    if (signup) {
+      if (all[email]) return { ok: false, message: "An account with this email already exists. Log in instead." };
+      var salt = hex(crypto.getRandomValues(new Uint8Array(16)));
+      all[email] = { salt: salt, hash: await derive(password, salt), used: 0, rights: rights, plan: "free", created: new Date().toISOString() }; write(ACC, all);
+    } else if (!all[email] || await derive(password, all[email].salt) !== all[email].hash) return { ok: false, message: "That email or password is incorrect." };
+    write(SES, email); user = previewUser(email); return { ok: true };
+  }
+  $("tabSignup").addEventListener("click", function () { setTab(true); });
+  $("tabLogin").addEventListener("click", function () { setTab(false); });
+  $("pwToggle").addEventListener("click", function () { var p = $("authPassword"), show = p.type === "password"; p.type = show ? "text" : "password"; this.textContent = show ? "Hide" : "Show"; this.setAttribute("aria-pressed", String(show)); });
+  $("authForm").addEventListener("submit", async function (e) {
+    e.preventDefault();
+    var email = $("authEmail").value.trim().toLowerCase(), password = $("authPassword").value, rights = $("authRights").checked, say = function (m) { $("authStatus").textContent = m; $("authStatus").className = ""; };
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { say("Enter a valid email address, like name@example.com."); $("authEmail").focus(); return; }
+    if (signup && password.length < 8) { say("Use a password with at least 8 characters."); $("authPassword").focus(); return; }
+    if (!password) { say("Enter your password."); $("authPassword").focus(); return; }
+    if (signup && !rights) { say("Confirm that you'll only upload videos you have permission to use."); return; }
+    var btn = $("authSubmit"), label = btn.textContent; btn.disabled = true; btn.textContent = signup ? "Creating account..." : "Logging in..."; say("");
+    var res = mode === "server" ? await post(signup ? "/api/signup" : "/api/login", { email: email, password: password, acceptedRights: rights }) : await previewAuth(email, password, rights);
+    if (res.ok) { await saveCred(email, password); if (mode === "server") { location.reload(); return; } $("authPassword").value = ""; reveal(); }
+    else say(res.message || "That didn't work. Try again.");
+    btn.disabled = false; btn.textContent = label;
+  });
+  if (mode === "preview") { $("previewNote").hidden = false; var s = read(SES); if (s) user = previewUser(s); }
+  var resetParam = new URLSearchParams(location.search).get("reset");
+  if (resetParam && mode === "server" && !user) { resetToken = resetParam; showReset(true); }
+  else if (!user) fillSaved();
+  return {
+    mode: mode,
+    onReady: function (fn) { ready = fn; if (user) reveal(); },
+    logout: async function () { if (mode === "server") await post("/api/logout"); else write(SES, null); location.reload(); },
+    claimClip: async function () {
+      if (mode === "server") { var d = await post("/api/clips/claim"); return d.ok ? d : { ok: false, reason: d.code === "limit_reached" ? "limit" : d.code === "auth_required" ? "auth" : "error", message: d.message, clipsUsed: d.clipsUsed, coins: d.coins }; }
+      var all = accounts(), a = all[user.email], now = previewUser(user.email); if (now.clipLimit !== null && now.clipsUsed >= now.clipLimit) return { ok: false, reason: "limit", clipsUsed: now.clipsUsed };
+      a.used = (a.used || 0) + 1; write(ACC, all); return { ok: true, id: "preview", clipsUsed: a.used, coins: 0 };
+    },
+    releaseClip: async function (id) {
+      if (mode === "server") return await post("/api/clips/release", { id: id });
+      var all = accounts(), a = all[user.email]; a.used = Math.max(0, (a.used || 0) - 1); write(ACC, all); return { clipsUsed: a.used };
+    },
+    user: function () { return user; },
+    post: post,
+    get: async function (path) { try { var r = await fetch(path, { credentials: "same-origin" }); var d = await r.json(); d.status = r.status; return d; } catch (e) { return { ok: false, code: "network", message: "Couldn't reach Cutline. Check your connection and try again." }; } },
+    previewAccounts: accounts,
+    savePreviewAccounts: function (all) { write(ACC, all); },
+    previewAdminEmail: PREVIEW_ADMIN,
+    resetPreview: function () { var all = accounts(); all[user.email].used = 0; write(ACC, all); }
+  };
+})();
+</script>
+<!--ADMIN-START-->
+<script>
+/* Admin panel. The server only sends this to the admin and checks every action again. */
+window.CutlineAdminStart = function () {
+  "use strict";
+  var Auth = window.CutlineAuth, me = Auth.user(); if (!me || me.role !== "admin") return;
+  var $ = function (id) { return document.getElementById(id); }, rows = [];
+  $("admin").hidden = false; $("adminLink").hidden = false;
+  function say(m) { $("adminStatus").textContent = m; }
+  var store = Auth.mode === "server" ? {
+    list: async function () { var r = await fetch("/api/admin/users", { credentials: "same-origin" }); var d = await r.json(); if (!d.ok) throw new Error(d.message); return d.users; },
+    act: async function (name, body) { var d = await Auth.post("/api/admin/users/" + name, body); if (!d.ok) throw new Error(d.message); }
+  } : {
+    list: async function () { var all = Auth.previewAccounts(); return Object.keys(all).map(function (e) { return { id: e, email: e, plan: all[e].plan || "free", role: e === Auth.previewAdminEmail ? "admin" : "user", clipsUsed: all[e].used || 0, coins: all[e].coins || 0, createdAt: all[e].created || "" }; }); },
+    act: async function (name, body) { var all = Auth.previewAccounts(); if (name === "plan") all[body.id].plan = body.plan; if (name === "reset") all[body.id].used = 0; if (name === "coins") all[body.id].coins = (all[body.id].coins || 0) + body.amount; if (name === "delete") delete all[body.id]; Auth.savePreviewAccounts(all); }
+  };
+  async function run(name, body, done) { try { await store.act(name, body); say(done); await load(); } catch (e) { say(e.message || "That change didn't save. Try again."); } }
+  function btn(label, cls, fn) { var b = document.createElement("button"); b.type = "button"; b.textContent = label; if (cls) b.className = cls; b.addEventListener("click", fn); return b; }
+  function render() {
+    var q = $("adminSearch").value.trim().toLowerCase(), body = $("adminRows"); body.textContent = "";
+    $("statUsers").textContent = rows.length; $("statPaid").textContent = rows.filter(function (u) { return u.plan !== "free" && u.role !== "admin"; }).length; $("statClips").textContent = rows.reduce(function (n, u) { return n + u.clipsUsed; }, 0);
+    var shown = rows.filter(function (u) { return u.email.indexOf(q) > -1; });
+    if (!shown.length) { var tr0 = body.insertRow(), td0 = tr0.insertCell(); td0.colSpan = 6; td0.textContent = "No accounts match that search."; return; }
+    shown.forEach(function (u) {
+      var tr = body.insertRow(), admin = u.role === "admin";
+      tr.insertCell().textContent = u.email;
+      var planCell = tr.insertCell();
+      if (admin) { planCell.className = "you"; planCell.textContent = "Admin"; }
+      else { var sel = document.createElement("select"); sel.setAttribute("aria-label", "Plan for " + u.email); [["free", "Free"], ["solo", "Solo"], ["pro", "Pro"]].forEach(function (p) { var o = new Option(p[1], p[0]); o.selected = u.plan === p[0]; sel.add(o); }); sel.addEventListener("change", function () { run("plan", { id: u.id, plan: sel.value }, u.email + " is now on " + sel.options[sel.selectedIndex].text + "."); }); planCell.appendChild(sel); }
+      tr.insertCell().textContent = admin ? u.clipsUsed + " (unlimited)" : u.clipsUsed;
+      tr.insertCell().textContent = admin ? "Not needed" : (u.coins || 0);
+      tr.insertCell().textContent = u.createdAt ? new Date(u.createdAt).toLocaleDateString() : "";
+      var acts = tr.insertCell(), wrap = document.createElement("div"); wrap.className = "row-acts"; acts.appendChild(wrap);
+      if (admin) { wrap.textContent = "Your account"; return; }
+      wrap.appendChild(btn("Reset clips", "", function () { run("reset", { id: u.id }, "Clips reset for " + u.email + "."); }));
+      wrap.appendChild(btn("Give 10 coins", "", function () { run("coins", { id: u.id, amount: 10 }, "Gave 10 coins to " + u.email + "."); }));
+      var del = btn("Delete", "danger", function () { if (del.dataset.armed) { run("delete", { id: u.id }, u.email + " was deleted."); return; } del.dataset.armed = "1"; del.textContent = "Confirm delete"; del.classList.add("armed"); setTimeout(function () { delete del.dataset.armed; del.textContent = "Delete"; del.classList.remove("armed"); }, 4000); });
+      del.setAttribute("aria-label", "Delete " + u.email); wrap.appendChild(del);
+    });
+  }
+  async function load() { try { rows = await store.list(); render(); } catch (e) { say(e.message || "Accounts couldn't load. Select Refresh to try again."); } }
+  $("adminSearch").addEventListener("input", render);
+  $("adminRefresh").addEventListener("click", function () { say(""); load(); });
+  load();
+};
+</script>
+<!--ADMIN-END-->
+<!--APP-JS-START-->
+<script>
+(function () {
+  "use strict";
+  /* Paste your Stripe payment links here to turn on checkout. */
+  var CHECKOUT = { solo: "", pro: "" };
+  var Auth = window.CutlineAuth;
+  var MIN_CLIP = 5, MAX_CLIP = 90, BINS = 300, W = 540, H = 960;
+  var $ = function (id) { return document.getElementById(id); };
+  var reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var preview = $("preview"), pctx = preview.getContext("2d"), wave = $("wave"), wctx = wave.getContext("2d");
+  var track = $("track"), region = $("region"), playhead = $("playhead"), studio = $("studio");
+  var video = document.createElement("video"); video.playsInline = true; video.preload = "auto";
+  var S = { mode: "sample", dur: 600, a: 84, b: 108, t: 84, playing: !reduced, bins: [], moments: [92, 263, 418], visible: true, last: 0, style: "bold", focus: 50, exporting: false, result: null, segs: [], sel: 0, env: null, jumping: false };
+  pctx.setTransform(preview.width / W, 0, 0, preview.width / W, 0, 0);
+
+  function fmt(s) { s = Math.max(0, Math.round(s)); var m = Math.floor(s / 60), r = String(s % 60).padStart(2, "0"); return m >= 60 ? Math.floor(m / 60) + ":" + String(m % 60).padStart(2, "0") + ":" + r : m + ":" + r; }
+  function clamp(v, lo, hi) { return Math.min(hi, Math.max(lo, v)); }
+  function status(m) { $("deckStatus").textContent = m; }
+
+  function sampleAmp(t) { var v = .22 + .1 * Math.abs(Math.sin(t * 1.7)) + .08 * Math.abs(Math.sin(t * .37 + 1)); [92, 263, 418].forEach(function (m) { v += .75 * Math.exp(-Math.pow((t - m) / 7, 2)); }); return Math.min(1, v); }
+  function sampleBins() { var o = []; for (var i = 0; i < BINS; i++) o.push(clamp(sampleAmp(i / BINS * 600) * (.7 + .3 * Math.abs(Math.sin(i * 12.9898))), .04, 1)); return o; }
+
+  /* Sample stream: an original neon driving game with a host camera, drawn in code. */
+  function drawSample(c, t) {
+    var hype = Math.max(0, sampleAmp(t) - .45), camH = H * .36, shake = hype * 14 * Math.sin(t * 40), i;
+    var bg = c.createLinearGradient(0, 0, W, camH); bg.addColorStop(0, "#35106b"); bg.addColorStop(1, "#b0145f"); c.fillStyle = bg; c.fillRect(0, 0, W, camH);
+    c.fillStyle = "rgba(39,232,242,.16)"; for (i = 0; i < 5; i++) c.fillRect(i * 118 + 18, 0, 34, camH);
+    var cx = W / 2 + shake, cy = camH * .56;
+    c.fillStyle = "#07060d"; c.beginPath(); c.ellipse(cx, camH + 26, 150, 112, 0, Math.PI, 0); c.fill();
+    c.fillStyle = "#f4c9a8"; c.beginPath(); c.arc(cx, cy, 82, 0, 7); c.fill();
+    c.strokeStyle = "#27e8f2"; c.lineWidth = 14; c.beginPath(); c.arc(cx, cy, 92, Math.PI * 1.05, Math.PI * 1.95); c.stroke();
+    c.fillStyle = "#27e8f2"; c.fillRect(cx - 108, cy - 24, 28, 56); c.fillRect(cx + 80, cy - 24, 28, 56);
+    c.fillStyle = "#07060d"; c.beginPath(); c.arc(cx - 28, cy - 12, 8, 0, 7); c.arc(cx + 28, cy - 12, 8, 0, 7); c.fill();
+    c.beginPath(); c.ellipse(cx, cy + 34, 22, 5 + 28 * Math.min(1, hype * 2 + .08 * Math.abs(Math.sin(t * 9))), 0, 0, 7); c.fill();
+    var hor = camH + (H - camH) * .24, sky = c.createLinearGradient(0, camH, 0, hor); sky.addColorStop(0, "#0b0830"); sky.addColorStop(1, hype > .2 ? "#ff2e88" : "#6a2cff"); c.fillStyle = sky; c.fillRect(0, camH, W, hor - camH);
+    c.fillStyle = "#0a0716"; c.fillRect(0, hor, W, H - hor);
+    c.fillStyle = "#17132b"; c.beginPath(); c.moveTo(W * .44, hor); c.lineTo(W * .56, hor); c.lineTo(W * 1.08, H); c.lineTo(-W * .08, H); c.closePath(); c.fill();
+    c.fillStyle = "#27e8f2"; for (i = 0; i < 7; i++) { var p = (t * (1.3 + hype * 3) + i / 7) % 1, q = p * p, w = 4 + q * 20; c.fillRect(W / 2 - w / 2, hor + q * (H - hor), w, 8 + q * 54); }
+    var carX = W / 2 + Math.sin(t * .9) * 120 + shake, carY = H - 150;
+    c.fillStyle = "#ff2e88"; c.fillRect(carX - 62, carY, 124, 86); c.fillStyle = "#fff"; c.fillRect(carX - 42, carY - 42, 84, 50);
+  }
+  function drawVideo(c) {
+    var vw = video.videoWidth, vh = video.videoHeight, r = W / H, sx = 0, sy = 0, sw = vw, sh = vh;
+    c.fillStyle = "#000"; c.fillRect(0, 0, W, H); if (!vw || !vh) return;
+    if (vw / vh > r) { sw = vh * r; sx = (vw - sw) * S.focus / 100; } else { sh = vw / r; sy = (vh - sh) * S.focus / 100; }
+    c.drawImage(video, sx, sy, sw, sh, 0, 0, W, H);
+  }
+  function drawCaption(c, text) {
+    text = text.trim(); if (!text) return;
+    var size = 52, lines = [], line = "", family = '"Anybody", "Arial Black", Arial, sans-serif';
+    c.save(); c.font = "italic 900 " + size + "px " + family;
+    text.toUpperCase().split(/\s+/).forEach(function (w) { var n = line ? line + " " + w : w; if (c.measureText(n).width > W - 70 && line) { lines.push(line); line = w; } else line = n; });
+    if (line) lines.push(line);
+    while (lines.some(function (l) { return c.measureText(l).width > W - 40; }) && size > 24) { size -= 4; c.font = "italic 900 " + size + "px " + family; }
+    c.textAlign = "center"; c.textBaseline = "middle"; c.lineJoin = "round";
+    var lh = size * 1.16, y = H * .62 - (lines.length - 1) * lh / 2;
+    lines.forEach(function (l, i) {
+      var ly = y + i * lh;
+      if (S.style === "box") { var m = c.measureText(l).width + 26; c.fillStyle = "#fff"; c.fillRect(W / 2 - m / 2, ly - lh / 2, m, lh); c.fillStyle = "#0b0914"; c.fillText(l, W / 2, ly + 2); }
+      else if (S.style === "neon") { c.shadowColor = "#ff2e88"; c.shadowBlur = 26; c.fillStyle = "#27e8f2"; c.fillText(l, W / 2, ly); c.fillText(l, W / 2, ly); c.shadowBlur = 0; }
+      else { c.lineWidth = 13; c.strokeStyle = "#07060d"; c.strokeText(l, W / 2, ly); c.fillStyle = "#fff"; c.fillText(l, W / 2, ly); }
+    });
+    c.restore();
+  }
+  function renderPreview() { if (S.mode === "sample") drawSample(pctx, S.t); else if (S.mode === "embed") pctx.clearRect(0, 0, W, H); else drawVideo(pctx); drawCaption(pctx, $("caption").value); }
+  function renderWave() {
+    var r = track.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1); if (!r.width) return;
+    if (wave.width !== Math.round(r.width * dpr)) { wave.width = Math.round(r.width * dpr); wave.height = Math.round(r.height * dpr); }
+    wctx.setTransform(dpr, 0, 0, dpr, 0, 0); wctx.clearRect(0, 0, r.width, r.height);
+    var n = Math.min(S.bins.length, Math.floor(r.width / 4)), g = wctx.createLinearGradient(0, 0, r.width, 0); g.addColorStop(0, "#ff2e88"); g.addColorStop(.5, "#b18cff"); g.addColorStop(1, "#27e8f2");
+    for (var i = 0; i < n; i++) { var tt = i / n * S.dur, h = Math.max(3, S.bins[Math.floor(i / n * S.bins.length)] * 64); wctx.fillStyle = tt >= S.a && tt <= S.b && !cutAt(tt) ? g : "rgba(255,255,255,.24)"; wctx.fillRect(i / n * r.width, 45 - h / 2, 2.5, h); }
+    wctx.fillStyle = "#b4b0cc"; wctx.font = '12.5px "Geist", Arial, sans-serif'; wctx.textBaseline = "bottom";
+    var ticks = r.width < 600 ? 3 : 6; for (var k = 0; k <= ticks; k++) { wctx.textAlign = k === 0 ? "left" : k === ticks ? "right" : "center"; wctx.fillText(fmt(k / ticks * S.dur), k / ticks * r.width, r.height); }
+  }
+  function renderMoments() {
+    track.querySelectorAll(".moment").forEach(function (m) { m.remove(); });
+    S.moments.forEach(function (m) {
+      var b = document.createElement("button"); b.type = "button"; b.className = "moment"; b.style.left = (m / S.dur * 100) + "%"; b.title = fmt(m); b.setAttribute("aria-label", "Jump to loud moment at " + fmt(m));
+      b.addEventListener("pointerdown", function (e) { e.stopPropagation(); });
+      b.addEventListener("click", function (e) { e.stopPropagation(); if (S.exporting) return; clearResult(); var len = S.b - S.a; moveRegion(clamp(m - len / 3, 0, Math.max(0, S.dur - len))); seek(keptStart()); layout(); });
+      track.appendChild(b);
+    });
+  }
+  /* Pieces of the clip. Cut pieces are skipped in playback and in the exported video. */
+  var ENV_RATE = 20, ED_PAD = 14, edTrack = $("edTrack"), edCanvas = $("edCanvas"), ectx = edCanvas.getContext("2d"), edDrag = null;
+  function resetSegs() { S.segs = [{ s: S.a, e: S.b, cut: false }]; S.sel = 0; }
+  function fitSegs() {
+    var out = [];
+    S.segs.forEach(function (g) { var a = Math.max(g.s, S.a), b = Math.min(g.e, S.b); if (b - a > .05) out.push({ s: a, e: b, cut: g.cut }); });
+    if (!out.length) out = [{ s: S.a, e: S.b, cut: false }];
+    out[0].s = S.a; out[out.length - 1].e = S.b;
+    if (out.every(function (g) { return g.cut; })) out.forEach(function (g) { g.cut = false; });
+    S.segs = out; S.sel = clamp(S.sel, 0, out.length - 1);
+  }
+  function moveRegion(newA) { var d = newA - S.a; S.a = newA; S.b += d; S.segs.forEach(function (g) { g.s += d; g.e += d; }); fitSegs(); }
+  function kept() { return S.segs.filter(function (g) { return !g.cut; }); }
+  function keptLength() { return kept().reduce(function (n, g) { return n + g.e - g.s; }, 0); }
+  function keptStart() { return kept()[0].s; }
+  function keptEnd() { var k = kept(); return k[k.length - 1].e; }
+  function keptBefore(t) { return kept().reduce(function (n, g) { return n + clamp(t, g.s, g.e) - g.s; }, 0); }
+  function cutAt(t) { return S.segs.filter(function (g) { return g.cut && t >= g.s && t < g.e; })[0] || null; }
+  function segAt(t) { for (var i = 0; i < S.segs.length; i++) if (t < S.segs[i].e || i === S.segs.length - 1) return i; return 0; }
+  function nextKept(t) { var k = kept().filter(function (g) { return g.e > t; })[0]; return k ? Math.max(k.s, t) : keptStart(); }
+  function ampAt(t) {
+    if (S.mode === "sample") return clamp(sampleAmp(t) * (.62 + .38 * Math.abs(Math.sin(t * 23.7))), .05, 1);
+    if (S.env) return S.env[clamp(Math.floor(t * ENV_RATE), 0, S.env.length - 1)];
+    return S.bins[clamp(Math.floor(t / S.dur * S.bins.length), 0, S.bins.length - 1)];
+  }
+  function edX(t, w) { return ED_PAD + (t - S.a) / Math.max(.001, S.b - S.a) * (w - 2 * ED_PAD); }
+  function edT(x, w) { return S.a + clamp((x - ED_PAD) / (w - 2 * ED_PAD), 0, 1) * (S.b - S.a); }
+  function secs(t) { return t < 10 ? t.toFixed(1) + "s" : Math.round(t) + "s"; }
+  function roundRect(c, x, y, w, h, r) { c.beginPath(); if (c.roundRect) c.roundRect(x, y, w, h, r); else c.rect(x, y, w, h); }
+  function renderEditor() {
+    var r = edTrack.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1); if (!r.width) return;
+    var W = r.width, H = r.height, top = 26, h = H - top - 6;
+    if (edCanvas.width !== Math.round(W * dpr) || edCanvas.height !== Math.round(H * dpr)) { edCanvas.width = Math.round(W * dpr); edCanvas.height = Math.round(H * dpr); }
+    var c = ectx; c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, W, H);
+    var len = S.b - S.a, step = [1, 2, 5, 10, 15, 30].filter(function (n) { return n / len * (W - 2 * ED_PAD) >= 44; })[0] || 30;
+    c.font = '12px "Geist", Arial, sans-serif'; c.textBaseline = "top"; c.fillStyle = "#b4b0cc";
+    for (var t = 0; t <= len + .001; t += step) { var x = edX(S.a + t, W); c.fillRect(x, 16, 1, 5); c.textAlign = t === 0 ? "left" : "center"; if (W - x > 24 || t === 0) c.fillText(t + "s", x, 0); }
+    var g = c.createLinearGradient(ED_PAD, 0, W - ED_PAD, 0); g.addColorStop(0, "#ff2e88"); g.addColorStop(.5, "#b18cff"); g.addColorStop(1, "#27e8f2");
+    S.segs.forEach(function (sg, i) {
+      var x0 = edX(sg.s, W) + (i ? 2 : 0), x1 = edX(sg.e, W) - (i < S.segs.length - 1 ? 2 : 0), w = Math.max(2, x1 - x0);
+      c.save(); roundRect(c, x0, top, w, h, 9); c.clip();
+      if (sg.cut) {
+        c.fillStyle = "rgba(255,46,136,.08)"; c.fillRect(x0, top, w, h);
+        c.strokeStyle = "rgba(255,46,136,.35)"; c.lineWidth = 2; for (var hx = x0 - h; hx < x1; hx += 12) { c.beginPath(); c.moveTo(hx, top + h); c.lineTo(hx + h, top); c.stroke(); }
+        if (w > 44) { c.fillStyle = "#ffc2da"; c.font = '600 13px "Geist", Arial, sans-serif'; c.textAlign = "center"; c.textBaseline = "middle"; c.fillText("Cut", x0 + w / 2, top + h / 2); }
+      } else {
+        c.fillStyle = "rgba(255,255,255,.08)"; c.fillRect(x0, top, w, h); c.fillStyle = g;
+        for (var bx = x0 + 2; bx < x1 - 2; bx += 4) { var a = ampAt(edT(bx, W)), bh = Math.max(3, a * (h - 16)); c.fillRect(bx, top + h / 2 - bh / 2, 2.2, bh); }
+      }
+      c.restore();
+      roundRect(c, x0 + 1, top + 1, w - 2, h - 2, 8); c.lineWidth = i === S.sel ? 2.5 : 1; c.strokeStyle = i === S.sel ? "#27e8f2" : sg.cut ? "rgba(255,46,136,.5)" : "rgba(255,255,255,.28)"; c.stroke();
+      if (i) { var bxl = edX(sg.s, W); c.fillStyle = "#f7f5ff"; roundRect(c, bxl - 1.5, top - 4, 3, h + 8, 2); c.fill(); }
+    });
+    if (S.t >= S.a && S.t <= S.b) { var px = edX(S.t, W); c.fillStyle = "#27e8f2"; c.fillRect(px - 1, top - 6, 2, h + 10); c.beginPath(); c.moveTo(px - 6, top - 10); c.lineTo(px + 6, top - 10); c.lineTo(px, top - 3); c.closePath(); c.fill(); }
+  }
+  function renderEditStatus() {
+    var cuts = S.segs.filter(function (g) { return g.cut; }).length, sel = S.segs[S.sel];
+    $("cutBtn").textContent = sel && sel.cut ? "Restore piece" : "Cut out piece";
+    $("cutBtn").disabled = S.segs.length < 2; $("resetCutsBtn").disabled = S.segs.length < 2;
+    $("edStatus").textContent = (cuts ? secs(keptLength()) + " kept of " + secs(S.b - S.a) + ", " + cuts + (cuts === 1 ? " piece cut" : " pieces cut") : secs(S.b - S.a) + " clip, no cuts yet") + (S.segs.length > 1 ? ". Selected: piece " + (S.sel + 1) + " of " + S.segs.length + (sel.cut ? " (cut)" : "") + "." : ".");
+  }
+  function editChanged() { clearResult(); if (!S.exporting && cutAt(S.t)) seek(nextKept(S.t)); layout(); }
+  function splitAt(t) {
+    var i = segAt(t), g = S.segs[i];
+    if (t < S.a || t > S.b || t - g.s < .3 || g.e - t < .3) { $("edStatus").textContent = "Move the playhead inside the clip, at least 0.3 seconds from a split, then split."; return; }
+    S.segs.splice(i, 1, { s: g.s, e: t, cut: g.cut }, { s: t, e: g.e, cut: g.cut }); S.sel = i + 1; editChanged();
+  }
+  function toggleCut() {
+    var g = S.segs[S.sel]; if (!g || S.segs.length < 2) return;
+    if (!g.cut && kept().length === 1) { $("edStatus").textContent = "You can't cut the only piece left. Restore another piece first."; return; }
+    g.cut = !g.cut; editChanged();
+  }
+  $("splitBtn").addEventListener("click", function () { splitAt(S.t); });
+  $("cutBtn").addEventListener("click", toggleCut);
+  $("resetCutsBtn").addEventListener("click", function () { resetSegs(); editChanged(); });
+  function boundaryNear(x, W) { for (var i = 1; i < S.segs.length; i++) if (Math.abs(edX(S.segs[i].s, W) - x) < 9) return i; return 0; }
+  edCanvas.addEventListener("pointerdown", function (e) {
+    if (S.exporting) return; e.preventDefault(); edTrack.focus({ preventScroll: true });
+    var r = edTrack.getBoundingClientRect(), x = e.clientX - r.left, b = boundaryNear(x, r.width);
+    if (b) { edDrag = b; edCanvas.setPointerCapture(e.pointerId); return; }
+    var t = edT(x, r.width); S.sel = segAt(t); seek(t); layout();
+  });
+  edCanvas.addEventListener("pointermove", function (e) {
+    var r = edTrack.getBoundingClientRect(), x = e.clientX - r.left;
+    if (!edDrag) { edCanvas.style.cursor = boundaryNear(x, r.width) ? "ew-resize" : "pointer"; return; }
+    var L = S.segs[edDrag - 1], Rg = S.segs[edDrag], t = clamp(edT(x, r.width), L.s + .3, Rg.e - .3);
+    L.e = t; Rg.s = t; seek(t); clearResult(); layout();
+  });
+  function endEdDrag() { if (edDrag) { edDrag = null; editChanged(); } }
+  edCanvas.addEventListener("pointerup", endEdDrag); edCanvas.addEventListener("pointercancel", endEdDrag);
+  edTrack.addEventListener("keydown", function (e) {
+    if (S.exporting) return;
+    if (e.key === "ArrowLeft" || e.key === "ArrowRight") { e.preventDefault(); var t = clamp(S.t + (e.key === "ArrowLeft" ? -1 : 1) * (e.shiftKey ? 1 : .1), S.a, S.b); S.sel = segAt(t); seek(t); layout(); }
+    else if (e.key === "s" || e.key === "S") { e.preventDefault(); splitAt(S.t); }
+    else if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); toggleCut(); }
+  });
+  function jumpTo(t) {
+    if (S.mode === "embed") { seek(t); return; }
+    if (S.mode !== "video") { S.t = t; return; }
+    S.jumping = true; var recording = S.exporting && rec && rec.state === "recording";
+    if (recording) rec.pause(); video.pause();
+    var done = waitSeek(); seek(t);
+    done.then(function () { renderPreview(); if (recording && rec.state === "paused") rec.resume(); if (S.playing) video.play().catch(function () {}); S.jumping = false; });
+  }
+
+  function clearResult() { S.result = null; $("saveBtn").hidden = true; $("postBtn").hidden = true; $("postNote").textContent = ""; }
+  function layout() {
+    region.style.left = (S.a / S.dur * 100) + "%"; region.style.width = ((S.b - S.a) / S.dur * 100) + "%"; playhead.style.left = (S.t / S.dur * 100) + "%";
+    $("clipLen").textContent = fmt(keptLength()); $("clipAt").textContent = fmt(S.a);
+    [["hIn", S.a], ["hOut", S.b]].forEach(function (x) { var h = $(x[0]); h.setAttribute("aria-valuemax", Math.round(S.dur)); h.setAttribute("aria-valuenow", Math.round(x[1])); h.setAttribute("aria-valuetext", fmt(x[1])); });
+    renderWave(); renderPreview(); renderEditor(); renderEditStatus();
+  }
+  function seek(t) { S.t = clamp(t, 0, S.dur); if (S.mode === "video") { try { video.currentTime = S.t; } catch (e) {} } else if (S.mode === "embed") { ytCmd("seekTo", [S.t, true]); yt.t = S.t; yt.at = performance.now(); } }
+  function setPlaying(on) { S.playing = on; $("playBtn").textContent = on ? "Pause" : "Play"; if (S.mode === "embed") { yt.t = ytTime(); yt.at = performance.now(); yt.playing = on; ytCmd(on ? "playVideo" : "pauseVideo"); } else if (S.mode === "video") { if (on) { var p = video.play(); if (p) p.catch(function () { setPlaying(false); }); } else video.pause(); } }
+  video.addEventListener("seeked", renderPreview); video.addEventListener("loadeddata", renderPreview);
+
+  function frame(now) {
+    var dt = Math.min(.1, (now - S.last) / 1000 || 0); S.last = now;
+    if (S.playing && (S.visible || S.exporting)) {
+      if (S.mode === "sample") S.t += dt; else if (S.mode === "embed") S.t = ytTime(); else if (!S.jumping) S.t = video.currentTime;
+      if (!S.jumping) {
+        var over = S.t >= keptEnd() || (S.mode === "video" && video.ended), cut = cutAt(S.t);
+        if (S.exporting) { var done = keptBefore(S.t), total = keptLength(); $("barFill").style.width = (clamp(done / total, 0, 1) * 100) + "%"; status("Exporting " + fmt(done) + " of " + fmt(total) + ". Keep this tab open."); if (over) finishExport(); else if (cut) jumpTo(cut.e); }
+        else if (over || S.t < S.a - .5) { seek(keptStart()); if (S.mode === "video" && video.paused) video.play().catch(function () {}); }
+        else if (cut) jumpTo(cut.e);
+      }
+      playhead.style.left = (S.t / S.dur * 100) + "%"; renderPreview(); renderEditor();
+    }
+    requestAnimationFrame(frame);
+  }
+
+  function timeAt(x) { var r = track.getBoundingClientRect(); return clamp((x - r.left) / r.width, 0, 1) * S.dur; }
+  function setIn(v) { if (S.exporting) return; clearResult(); S.a = clamp(v, Math.max(0, S.b - MAX_CLIP), S.b - Math.min(MIN_CLIP, S.dur)); fitSegs(); if (S.t < S.a || cutAt(S.t)) seek(nextKept(Math.max(S.t, S.a))); layout(); }
+  function setOut(v) { if (S.exporting) return; clearResult(); S.b = clamp(v, S.a + Math.min(MIN_CLIP, S.dur), Math.min(S.dur, S.a + MAX_CLIP)); fitSegs(); if (S.t > S.b || cutAt(S.t)) seek(keptStart()); layout(); }
+  function drag(el, onMove) { el.addEventListener("pointerdown", function (e) { e.preventDefault(); e.stopPropagation(); el.setPointerCapture(e.pointerId); var start = e.clientX, a = S.a, b = S.b; function move(ev) { onMove(ev, timeAt(ev.clientX), (ev.clientX - start) / track.getBoundingClientRect().width * S.dur, a, b); } function up() { el.removeEventListener("pointermove", move); el.removeEventListener("pointerup", up); el.removeEventListener("pointercancel", up); } el.addEventListener("pointermove", move); el.addEventListener("pointerup", up); el.addEventListener("pointercancel", up); }); }
+  drag($("hIn"), function (e, t) { setIn(t); }); drag($("hOut"), function (e, t) { setOut(t); });
+  drag(region, function (e, t, d, a, b) { if (S.exporting) return; clearResult(); var len = b - a; moveRegion(clamp(a + d, 0, S.dur - len)); seek(keptStart()); layout(); });
+  track.addEventListener("pointerdown", function (e) { if (S.exporting) return; clearResult(); var len = S.b - S.a; moveRegion(clamp(timeAt(e.clientX) - len / 2, 0, S.dur - len)); seek(keptStart()); layout(); });
+  function keys(el, fn) { el.addEventListener("keydown", function (e) { var d = e.key === "ArrowLeft" || e.key === "ArrowDown" ? -1 : e.key === "ArrowRight" || e.key === "ArrowUp" ? 1 : 0; if (d) { e.preventDefault(); fn(d * (e.shiftKey ? 5 : 1)); } }); }
+  keys($("hIn"), function (d) { setIn(S.a + d); }); keys($("hOut"), function (d) { setOut(S.b + d); });
+
+  $("playBtn").addEventListener("click", function () { setPlaying(!S.playing); });
+  $("caption").addEventListener("input", function () { clearResult(); renderPreview(); });
+  $("focus").addEventListener("input", function (e) { clearResult(); S.focus = +e.target.value; positionEmbed(); renderPreview(); });
+  document.querySelectorAll(".chip").forEach(function (c) { c.addEventListener("click", function () { clearResult(); S.style = c.dataset.style; document.querySelectorAll(".chip").forEach(function (x) { x.setAttribute("aria-pressed", x === c ? "true" : "false"); }); renderPreview(); }); });
+
+  /* Your own video */
+  video.crossOrigin = "anonymous";
+  function setupVideo(label, src, isLink, scan) {
+    setPlaying(false); clearResult(); clearEmbed(); status("Opening " + label + "...");
+    if (video.src && video.src.indexOf("blob:") === 0) URL.revokeObjectURL(video.src);
+    video.onerror = function () { status(isLink ? "That link didn't load. Paste a direct link to a video file, like one ending in .mp4, from a site that allows it." : "This browser can't play that file. Try an MP4 video."); };
+    video.onloadedmetadata = function () {
+      if (!isFinite(video.duration) || video.duration < MIN_CLIP) { status("That video is too short. Choose one at least 5 seconds long."); return; }
+      S.mode = "video"; S.dur = video.duration; S.a = 0; S.b = Math.min(30, S.dur); S.t = 0; S.moments = []; S.env = null; resetSegs(); S.bins = Array.from({ length: BINS }, function () { return .12; });
+      $("focusField").hidden = false; renderMoments(); seek(0); layout(); scan();
+    };
+    video.src = src;
+  }
+  function loadFile(file) {
+    if (!file || S.exporting) return;
+    if (file.type && file.type.indexOf("video/") !== 0) { status("That file isn't a video. Choose an MP4, MOV, or WebM file."); return; }
+    setupVideo(file.name, URL.createObjectURL(file), false, function () { scanAudio(file); });
+  }
+  /* Links: direct video links load right here. YouTube, Twitch, and similar pages import through the Cutline server. */
+  var PLATFORM_HOSTS = /(^|\.)(youtube\.com|youtu\.be|twitch\.tv|kick\.com|tiktok\.com|instagram\.com|x\.com|twitter\.com|facebook\.com|vimeo\.com|rumble\.com)$/;
+  async function scanLink(src) {
+    try {
+      var r = await fetch(src); if (!r.ok) throw new Error();
+      if (+r.headers.get("content-length") > 250 * 1024 * 1024) { status("Video loaded. Files over 250 MB skip the audio scan, so drag the white edges to trim."); return; }
+      scanAudio(await r.blob());
+    } catch (e) { status("Video loaded. Its audio couldn't be scanned, so drag the white edges to trim."); }
+  }
+  async function loadLink(raw) {
+    if (S.exporting) return;
+    var u; try { u = new URL(raw.trim()); } catch (e) { u = null; }
+    if (!u || !/^https?:$/.test(u.protocol)) { status("That doesn't look like a link. Paste the full address, starting with https://."); $("linkInput").focus(); return; }
+    var host = u.hostname.toLowerCase(), ytId = youTubeId(u);
+    if (ytId) { loadYouTube(ytId, startSeconds(u), u.href); return; }
+    if (PLATFORM_HOSTS.test(host)) {
+      if (Auth.mode !== "server") { status("Twitch and similar links import through the Cutline server once your site is live. YouTube links and direct video links work right now."); return; }
+      status("Importing your video. Longer videos can take a minute...");
+      var d = await Auth.post("/api/import", { url: u.href });
+      if (!d.ok) { status(d.message || "That video couldn't be imported. Check the link and try again."); return; }
+      setupVideo(d.title || "your video", d.videoUrl, true, function () { scanLink(d.videoUrl); });
+      return;
+    }
+    setupVideo(decodeURIComponent(u.pathname.split("/").pop() || "") || "your link", u.href, true, function () { scanLink(u.href); });
+  }
+  /* YouTube links play in YouTube's own player inside the phone frame, controlled from the timeline and editor. */
+  var yt = { frame: null, ready: false, t: 0, at: 0, playing: false, href: "", start: 0, timer: null };
+  function ytCmd(func, args) { if (yt.frame && yt.frame.contentWindow) yt.frame.contentWindow.postMessage(JSON.stringify({ event: "command", func: func, args: args || [], id: "cutline", channel: "widget" }), "*"); }
+  function ytListen() { if (yt.frame && yt.frame.contentWindow) yt.frame.contentWindow.postMessage(JSON.stringify({ event: "listening", id: "cutline", channel: "widget" }), "*"); }
+  function ytTime() { return yt.t + (yt.playing ? (performance.now() - yt.at) / 1000 : 0); }
+  function youTubeId(u) {
+    var host = u.hostname.toLowerCase().replace(/^(www\.|m\.|music\.)/, ""), id = "", m;
+    if (host === "youtu.be") id = u.pathname.split("/")[1] || "";
+    else if (host === "youtube.com" || host === "youtube-nocookie.com") { id = u.searchParams.get("v") || ""; if (!id && (m = u.pathname.match(/^\/(shorts|live|embed)\/([\w-]{11})/))) id = m[2]; }
+    return /^[\w-]{11}$/.test(id) ? id : "";
+  }
+  function startSeconds(u) {
+    var t = u.searchParams.get("t") || u.searchParams.get("start") || "", m; if (!t) return 0;
+    if (/^\d+s?$/.test(t)) return parseInt(t, 10);
+    m = t.match(/^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/); return m ? (+m[1] || 0) * 3600 + (+m[2] || 0) * 60 + (+m[3] || 0) : 0;
+  }
+  function positionEmbed() { if (yt.frame) yt.frame.style.left = (-216.05 * S.focus / 100) + "%"; }
+  function clearEmbed() {
+    clearInterval(yt.timer); if (yt.frame) yt.frame.remove();
+    yt.frame = null; yt.ready = false; yt.playing = false;
+    $("embedBox").hidden = true; $("phone").classList.remove("embed-on");
+  }
+  function backToSample() {
+    S.mode = "sample"; S.dur = 600; S.a = 84; S.b = 108; S.t = 84; S.moments = [92, 263, 418]; S.env = null; S.bins = sampleBins(); resetSegs();
+    $("focusField").hidden = true; renderMoments(); layout();
+  }
+  function loadYouTube(id, start, href) {
+    setPlaying(false); clearResult(); clearEmbed(); video.pause();
+    if (S.mode === "embed") backToSample();
+    status("Loading the YouTube video...");
+    yt.href = href; yt.start = start;
+    var f = document.createElement("iframe"), origin = location.origin && location.origin !== "null" ? "&origin=" + encodeURIComponent(location.origin) : "";
+    f.src = "https://www.youtube.com/embed/" + id + "?enablejsapi=1&controls=0&playsinline=1&rel=0&disablekb=1&iv_load_policy=3" + origin;
+    f.allow = "autoplay; encrypted-media"; f.referrerPolicy = "strict-origin-when-cross-origin"; f.title = "YouTube video"; f.tabIndex = -1;
+    yt.frame = f; $("embedBox").appendChild(f); $("embedBox").hidden = false; $("phone").classList.add("embed-on"); positionEmbed();
+    f.addEventListener("load", ytListen);
+    var tries = 0;
+    yt.timer = setInterval(function () {
+      if (yt.ready) { clearInterval(yt.timer); return; }
+      if (++tries > 24) { clearEmbed(); if (S.mode === "embed") backToSample(); status("YouTube didn't load here. Check the link. Some videos don't allow playing on other sites."); return; }
+      ytListen();
+    }, 500);
+  }
+  function onYtReady(dur) {
+    S.mode = "embed"; S.dur = dur; S.a = clamp(yt.start, 0, Math.max(0, dur - MIN_CLIP)); S.b = Math.min(dur, S.a + 30); S.moments = []; S.env = null; resetSegs();
+    S.bins = Array.from({ length: BINS }, function () { return .12; });
+    $("focusField").hidden = false; renderMoments(); setPlaying(false); seek(S.a); layout();
+    status("Video loaded. Press Play, drag the white edges to trim, then split and cut below.");
+  }
+  addEventListener("message", function (e) {
+    if (!yt.frame || e.source !== yt.frame.contentWindow || typeof e.data !== "string") return;
+    var d; try { d = JSON.parse(e.data); } catch (err) { return; }
+    var info = d && d.info; if (!info || typeof info !== "object") return;
+    if (typeof info.currentTime === "number") { yt.t = info.currentTime; yt.at = performance.now(); }
+    if (typeof info.playerState === "number") yt.playing = info.playerState === 1;
+    if (!yt.ready && info.duration > 0) { yt.ready = true; onYtReady(info.duration); }
+  });
+  function exportEmbed() {
+    var parts = kept().map(function (g) { return fmt(g.s) + " to " + fmt(g.e); }).join(", ");
+    if (Auth.mode !== "server") { status("Your cut is set: " + parts + " (" + fmt(keptLength()) + " total). Exporting YouTube clips with captions needs the Cutline server, so it works once your site is live."); return; }
+    status("Sending your cut to Cutline...");
+    Auth.post("/api/import-clip", { url: yt.href, segments: kept().map(function (g) { return [g.s, g.e]; }), caption: $("caption").value.trim(), style: S.style, focus: S.focus }).then(function (d) {
+      status(d.ok ? (d.message || "Your clip is being made. It'll show up when it's ready.") : (d.message || "That clip couldn't be made. Try again."));
+    });
+  }
+  $("linkToggle").addEventListener("click", function () { var r = $("linkRow"), open = r.hidden; r.hidden = !open; this.setAttribute("aria-expanded", String(open)); if (open) $("linkInput").focus(); });
+  $("linkRow").addEventListener("submit", function (e) { e.preventDefault(); loadLink($("linkInput").value); });
+  function scanAudio(file) {
+    if (file.size > 250 * 1024 * 1024) { status("Video loaded. Files over 250 MB skip the audio scan, so drag the white edges to trim."); return; }
+    var AC = window.OfflineAudioContext || window.webkitOfflineAudioContext; if (!AC) { status("Video loaded. Drag the white edges to trim."); return; }
+    status("Finding the loudest moments...");
+    file.arrayBuffer().then(function (buf) { return new AC(1, 8000, 8000).decodeAudioData(buf); }).then(function (audio) {
+      var d = audio.getChannelData(0), step = Math.max(1, Math.floor(d.length / BINS)), bins = [], max = 0;
+      for (var i = 0; i < BINS; i++) { var sum = 0, n = 0; for (var j = i * step; j < Math.min(d.length, (i + 1) * step); j += 16) { sum += d[j] * d[j]; n++; } var v = Math.sqrt(sum / Math.max(1, n)); bins.push(v); max = Math.max(max, v); }
+      if (!max) { status("Video loaded with no sound. Drag the white edges to trim."); return; }
+      S.bins = bins.map(function (v) { return clamp(v / max, .04, 1); });
+      var per = Math.max(1, Math.round(audio.sampleRate / ENV_RATE)), env = new Float32Array(Math.ceil(d.length / per)), emax = 0;
+      for (var q = 0; q < env.length; q++) { var es = 0, en = 0; for (var k = q * per; k < Math.min(d.length, (q + 1) * per); k += 4) { es += d[k] * d[k]; en++; } env[q] = Math.sqrt(es / Math.max(1, en)); emax = Math.max(emax, env[q]); }
+      for (q = 0; q < env.length; q++) env[q] = clamp(env[q] / (emax || 1), .04, 1); S.env = env;
+      var picks = []; S.bins.map(function (v, i) { return [v, i]; }).sort(function (x, y) { return y[0] - x[0]; }).forEach(function (o) { if (picks.length < 3 && picks.every(function (p) { return Math.abs(p - o[1]) > BINS / 12; })) picks.push(o[1]); });
+      S.moments = picks.map(function (i) { return (i + .5) / BINS * S.dur; }).sort(function (a, b) { return a - b; });
+      renderMoments(); layout(); status("Found " + S.moments.length + " loud moments. Select a blue dot to jump there.");
+    }).catch(function () { status("Video loaded. Its audio couldn't be scanned, so drag the white edges to trim."); });
+  }
+  $("fileInput").addEventListener("change", function (e) { loadFile(e.target.files[0]); e.target.value = ""; });
+  ["dragover", "dragenter"].forEach(function (n) { studio.addEventListener(n, function (e) { e.preventDefault(); studio.classList.add("dragover"); }); });
+  ["dragleave", "drop"].forEach(function (n) { studio.addEventListener(n, function (e) { e.preventDefault(); studio.classList.remove("dragover"); }); });
+  studio.addEventListener("drop", function (e) { loadFile(e.dataTransfer.files[0]); });
+
+  /* Export a real video file */
+  var usedClips = 0, clipLimit = 5, claimId = null, unlimited = false, paidPlan = false, coins = 0;
+  function allowanceLeft() { return unlimited ? Infinity : Math.max(0, clipLimit - usedClips); }
+  function canExport() { return unlimited || allowanceLeft() > 0 || coins > 0; }
+  function applyUsage(d) { if (!d) return; if (typeof d.clipsUsed === "number") usedClips = d.clipsUsed; if (typeof d.coins === "number") coins = d.coins; renderFree(); }
+  function renderFree() {
+    var n = allowanceLeft(), el = $("freeLeft"), coinText = coins + (coins === 1 ? " coin" : " coins"), t;
+    if (unlimited) t = "Unlimited clips";
+    else { t = paidPlan ? n + " of " + clipLimit + " plan clips left" : n ? n + " of " + clipLimit + " free clips left" : "No free clips left"; if (coins || !n) t += ", " + coinText; }
+    el.textContent = t; el.className = canExport() ? "free" : "free out";
+    if (!S.exporting) $("exportBtn").textContent = !canExport() ? "Get more clips" : n > 0 ? "Export clip" : "Export clip (1 coin)";
+  }
+  function setUsed(n) { if (typeof n === "number") usedClips = n; renderFree(); }
+  function releaseClaim() { if (!claimId) return; var id = claimId; claimId = null; Auth.releaseClip(id).then(applyUsage); }
+  var rec = null, audioCtx = null, audioDest = null, canceled = false;
+  function pickType() { var list = ["video/mp4;codecs=avc1.42E01F,mp4a.40.2", "video/mp4;codecs=avc1.4D401F,mp4a.40.2", "video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm", "video/mp4"]; for (var i = 0; i < list.length; i++) if (MediaRecorder.isTypeSupported(list[i])) return list[i]; return ""; }
+  function waitSeek() { return new Promise(function (ok) { var done = false, fin = function () { if (!done) { done = true; video.removeEventListener("seeked", fin); ok(); } }; video.addEventListener("seeked", fin); setTimeout(fin, 3000); }); }
+  function endExportUI() { S.exporting = false; studio.classList.remove("exporting"); renderFree(); $("bar").hidden = true; $("barFill").style.width = "0"; }
+  function finishExport() { S.playing = false; if (S.mode === "video") video.pause(); $("playBtn").textContent = "Play"; if (rec && rec.state !== "inactive") rec.stop(); }
+  function cancelExport(msg) { canceled = msg; finishExport(); }
+  async function startExport() {
+    if (S.exporting) { cancelExport("Export canceled."); return; }
+    if (S.mode === "embed") { exportEmbed(); return; }
+    if (!canExport()) { openPay(true); return; }
+    var type = window.MediaRecorder && preview.captureStream ? pickType() : "";
+    if (!type) { status("This browser can't export video. Open Cutline in the latest Chrome or Edge on a computer."); return; }
+    clearResult(); canceled = false; setPlaying(false); S.exporting = true; studio.classList.add("exporting"); $("exportBtn").textContent = "Cancel export"; $("bar").hidden = false;
+    try {
+      var stream = preview.captureStream(30);
+      if (S.mode === "video") {
+        var AC = window.AudioContext || window.webkitAudioContext;
+        if (AC) { if (!audioCtx) { audioCtx = new AC(); var src = audioCtx.createMediaElementSource(video); audioDest = audioCtx.createMediaStreamDestination(); src.connect(audioDest); src.connect(audioCtx.destination); } await audioCtx.resume(); audioDest.stream.getAudioTracks().forEach(function (t) { stream.addTrack(t); }); }
+        var sought = waitSeek(); seek(keptStart()); await sought;
+      } else S.t = keptStart();
+      var claim = await Auth.claimClip();
+      if (!claim.ok) {
+        stream.getVideoTracks().forEach(function (t) { t.stop(); }); endExportUI();
+        if (claim.reason === "limit") { applyUsage(claim); openPay(true); }
+        else if (claim.reason === "auth") { status("Your login expired. Log in again to export."); setTimeout(function () { location.reload(); }, 1500); }
+        else status(claim.message || "Couldn't start the export. Try again.");
+        return;
+      }
+      claimId = claim.id; applyUsage(claim);
+      if (canceled) { stream.getVideoTracks().forEach(function (t) { t.stop(); }); endExportUI(); releaseClaim(); status(canceled); return; }
+      var chunks = []; rec = new MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: 8000000, audioBitsPerSecond: 160000 });
+      rec.ondataavailable = function (e) { if (e.data && e.data.size) chunks.push(e.data); };
+      rec.onerror = function () { cancelExport("Export failed. Try a shorter clip or the latest Chrome."); };
+      rec.onstop = function () {
+        stream.getVideoTracks().forEach(function (t) { t.stop(); }); endExportUI();
+        if (canceled) { releaseClaim(); status(canceled); return; }
+        var blob = new Blob(chunks, { type: type.split(";")[0] });
+        if (!blob.size) { releaseClaim(); status("Export failed. Try a shorter clip or the latest Chrome."); return; }
+        var ext = type.indexOf("mp4") > -1 ? "mp4" : "webm", slug = $("caption").value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 36) || "clip";
+        S.result = { blob: blob, name: "cutline-" + slug + "." + ext };
+        $("saveBtn").textContent = "Save clip (" + (blob.size / 1048576).toFixed(1) + " MB)"; $("saveBtn").hidden = false; lastClip = { id: claimId, blob: blob, uploaded: false, length: keptLength(), caption: $("caption").value.trim() }; claimId = null; status("Your clip is ready to save as " + ext.toUpperCase() + "." + (canExport() ? "" : " That was your last clip. Buy coins to make more.")); afterExport();
+      };
+      rec.start(500); S.playing = true; if (S.mode === "video") await video.play();
+    } catch (err) { endExportUI(); releaseClaim(); S.playing = false; status("Export failed. Try a shorter clip or the latest Chrome."); }
+  }
+  $("exportBtn").addEventListener("click", startExport);
+  document.addEventListener("visibilitychange", function () { if (document.hidden && S.exporting) cancelExport("Export stopped because the tab was hidden. Keep this tab open and export again."); });
+  $("saveBtn").addEventListener("click", async function () {
+    if (!S.result) return;
+    var dl = null; if (window.claude && window.claude.use) { try { dl = await window.claude.use("downloads"); } catch (e) {} }
+    if (dl) { try { await dl.save({ filename: S.result.name, data: S.result.blob }); status("Clip saved. Upload it to TikTok when you're ready."); } catch (e) { status(e && e.code === "declined" ? "Save canceled. Select Save clip to try again." : "The clip couldn't be saved here. Select Save clip to try again."); } return; }
+    var a = document.createElement("a"), url = URL.createObjectURL(S.result.blob); a.href = url; a.download = S.result.name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(url); }, 60000); status("Clip saved. Upload it to TikTok when you're ready.");
+  });
+
+  /* Connected accounts and uploads */
+  var conns = [], posts = [], lastClip = null, pollTimer = null, ttInfo = null;
+  var NAMES = { youtube: "YouTube", tiktok: "TikTok", instagram: "Instagram" };
+  var TT_PRIVACY = { PUBLIC_TO_EVERYONE: "Everyone", MUTUAL_FOLLOW_FRIENDS: "Friends", FOLLOWER_OF_CREATOR: "Followers", SELF_ONLY: "Only me" };
+  function notice(msg, bad) { var n = $("notice"); n.textContent = msg; n.className = "notice wrap" + (bad ? " bad" : ""); n.hidden = !msg; }
+  function mini(label, cls, fn) { var b = document.createElement("button"); b.type = "button"; b.className = "mini" + (cls ? " " + cls : ""); b.textContent = label; b.addEventListener("click", fn); return b; }
+  function connected(p) { return conns.some(function (c) { return c.platform === p && c.connected; }); }
+  async function loadConnections() {
+    if (Auth.mode !== "server") { conns = ["youtube", "instagram", "tiktok"].map(function (p) { return { platform: p, name: NAMES[p], preview: true }; }); renderAccts(); return; }
+    var d = await Auth.get("/api/connections");
+    if (d.ok) { conns = d.connections; posts = d.posts; renderAccts(); renderPosts(); }
+  }
+  function renderAccts() {
+    var ul = $("accts"); ul.textContent = "";
+    ["youtube", "instagram", "tiktok"].forEach(function (p) {
+      var c = conns.filter(function (x) { return x.platform === p; })[0]; if (!c) return;
+      var li = document.createElement("li"), top = document.createElement("div"), name = document.createElement("b"), who = document.createElement("span"), row = document.createElement("div");
+      top.className = "acct-top"; row.className = "acct-row"; name.textContent = c.name;
+      who.className = "acct-who" + (c.connected ? " on" : ""); who.textContent = c.connected ? c.accountName : c.available || c.preview ? "Not connected" : "Not set up yet";
+      top.append(name, who);
+      if (c.connected) {
+        if (p === "tiktok") { var t = document.createElement("span"); t.className = "note"; t.textContent = "Confirm each post"; row.appendChild(t); }
+        else { var lab = document.createElement("label"), cb = document.createElement("input"); lab.className = "mini-check"; cb.type = "checkbox"; cb.checked = c.autoUpload; cb.setAttribute("aria-label", "Auto upload to " + c.name); cb.addEventListener("change", function () { setAuto(p, cb.checked); }); lab.append(cb, document.createTextNode("Auto upload")); row.appendChild(lab); }
+        var dis = mini("Disconnect", "", function () { if (dis.dataset.armed) { disconnect(p); return; } dis.dataset.armed = "1"; dis.textContent = "Confirm"; dis.classList.add("armed"); setTimeout(function () { delete dis.dataset.armed; dis.textContent = "Disconnect"; dis.classList.remove("armed"); }, 4000); });
+        dis.setAttribute("aria-label", "Disconnect " + c.name); row.appendChild(dis);
+      } else { var sp = document.createElement("span"); row.appendChild(sp); var go = mini("Connect", "go", function () { connectTo(c); }); go.setAttribute("aria-label", "Connect " + c.name); row.appendChild(go); }
+      li.append(top, row); ul.appendChild(li);
+    });
+    var n = conns.filter(function (c) { return c.connected; }).length; $("acctCount").textContent = n + " connected";
+    if (lastClip && lastClip.uploaded) $("postBtn").hidden = !n;
+  }
+  function connectTo(c) {
+    if (c.preview) { notice("Connecting accounts works once your site is live."); return; }
+    if (!c.available) { notice(c.name + " uploads aren't set up on this site yet.", true); return; }
+    location.href = "/connect/" + c.platform;
+  }
+  async function setAuto(p, on) { var d = await Auth.post("/api/connections/auto", { platform: p, on: on }); if (d.ok) { conns = d.connections; renderAccts(); } else notice(d.message, true); }
+  async function disconnect(p) { var d = await Auth.post("/api/connections/disconnect", { platform: p }); if (d.ok) { conns = d.connections; renderAccts(); notice(NAMES[p] + " is disconnected."); } else notice(d.message, true); }
+  function renderPosts() {
+    var ol = $("postList"); ol.textContent = "";
+    posts.slice(0, 8).forEach(function (p) {
+      var li = document.createElement("li"), what = document.createElement("span"), st = document.createElement("span");
+      what.className = "cap"; what.textContent = p.name + ": " + (p.caption || "Clip");
+      st.className = "state " + p.status; st.textContent = { queued: "Waiting", uploading: "Uploading", posted: "Posted", failed: "Failed" }[p.status] || p.status;
+      li.append(what, st);
+      if (p.status === "posted" && p.url) { var a = document.createElement("a"); a.href = p.url; a.target = "_blank"; a.rel = "noopener"; a.textContent = "View post"; a.className = "note"; li.appendChild(a); }
+      if (p.status === "failed" && p.message) { var m = document.createElement("span"); m.className = "msg"; m.textContent = p.message; li.appendChild(m); }
+      ol.appendChild(li);
+    });
+    var busy = posts.some(function (p) { return p.status === "queued" || p.status === "uploading"; });
+    clearTimeout(pollTimer); if (busy) pollTimer = setTimeout(refreshPosts, 4000);
+  }
+  async function refreshPosts() { var d = await Auth.get("/api/posts"); if (d.ok) { posts = d.posts; renderPosts(); } }
+  async function afterExport() {
+    if (Auth.mode !== "server" || !lastClip) return;
+    var clip = lastClip, anyConnected = conns.some(function (c) { return c.connected; });
+    $("postNote").textContent = anyConnected ? "Uploading your clip to Cutline..." : "";
+    var r; try { r = await fetch("/api/clips/file?id=" + encodeURIComponent(clip.id), { method: "POST", credentials: "same-origin", headers: { "Content-Type": clip.blob.type }, body: clip.blob }); r = await r.json(); } catch (e) { r = { ok: false, message: "Your clip didn't upload. Check your connection, then select Post to your accounts." }; }
+    if (clip !== lastClip) return;
+    if (!r.ok) { $("postNote").textContent = r.message || "Your clip didn't upload."; $("postBtn").hidden = !anyConnected; return; }
+    clip.uploaded = true; $("postBtn").hidden = !anyConnected;
+    if (!anyConnected) { $("postNote").textContent = "Connect YouTube, Instagram, or TikTok to upload clips automatically."; return; }
+    var targets = {}, names = [], skipped = "";
+    conns.forEach(function (c) {
+      if (!c.connected || !c.autoUpload || c.platform === "tiktok") return;
+      if (c.platform === "instagram" && clip.blob.type.indexOf("mp4") < 0) { skipped = " Instagram needs an MP4, so it was skipped. Use the latest Chrome or Edge."; return; }
+      targets[c.platform] = c.platform === "youtube" ? { privacy: "public" } : {}; names.push(c.name);
+    });
+    var tiktokNote = connected("tiktok") ? " Select Post to your accounts to send it to TikTok." : "";
+    if (!names.length) { $("postNote").textContent = "Select Post to your accounts to upload this clip." + skipped; return; }
+    var d = await Auth.post("/api/posts", { clipId: clip.id, caption: clip.caption, targets: targets });
+    if (d.ok) { posts = d.posts; renderPosts(); $("postNote").textContent = "Auto uploading to " + names.join(" and ") + "." + skipped + tiktokNote; }
+    else $("postNote").textContent = d.message + tiktokNote;
+  }
+
+  /* Post dialog, including the screen TikTok requires before every post */
+  function postedTo(p) { return lastClip && posts.some(function (x) { return x.clipId === lastClip.id && x.platform === p && x.status !== "failed"; }); }
+  function setupField(p, box, cb, nameEl) {
+    var c = conns.filter(function (x) { return x.platform === p; })[0], on = Boolean(c && c.connected);
+    $(box).hidden = !on; if (!on) { $(cb).checked = false; return; }
+    $(nameEl).textContent = postedTo(p) ? "(already posted)" : c.accountName; $(cb).disabled = postedTo(p); $(cb).checked = false;
+  }
+  function openPost() {
+    if (!lastClip || !lastClip.uploaded) return;
+    $("postCaption").value = lastClip.caption; $("postStatus").textContent = "";
+    var v = $("postPreview"); if (v.dataset.url) URL.revokeObjectURL(v.dataset.url); v.dataset.url = URL.createObjectURL(lastClip.blob); v.src = v.dataset.url;
+    setupField("youtube", "pfYoutube", "toYoutube", "ytName"); setupField("instagram", "pfInstagram", "toInstagram", "igName"); setupField("tiktok", "pfTiktok", "toTiktok", "ttName");
+    $("ttFields").hidden = true; ttInfo = null; resetTikTok();
+    $("postDialog").showModal();
+  }
+  function resetTikTok() {
+    var sel = $("ttPrivacy"); sel.length = 1; sel.selectedIndex = 0;
+    ["ttComment", "ttDuet", "ttStitch", "ttDisclose", "ttYourBrand", "ttBranded"].forEach(function (id) { $(id).checked = false; $(id).disabled = false; });
+    $("ttDiscloseBox").hidden = true; ttLegal();
+  }
+  async function loadTikTok() {
+    $("ttFields").hidden = false; $("ttForm").hidden = true; $("ttLoading").hidden = false; $("ttLoading").textContent = "Loading your TikTok settings...";
+    var d = await Auth.get("/api/tiktok/creator");
+    if (!$("toTiktok").checked) return;
+    if (!d.ok) { $("ttLoading").textContent = d.message || "TikTok can't take new posts right now. Try again later."; $("toTiktok").checked = false; return; }
+    ttInfo = d.creator;
+    if (ttInfo.maxDuration && lastClip.length > ttInfo.maxDuration) { $("ttLoading").textContent = "This clip is longer than TikTok allows for your account (" + ttInfo.maxDuration + " seconds). Trim it and export again."; $("toTiktok").checked = false; return; }
+    $("ttNick").textContent = ttInfo.nickname; resetTikTok();
+    ttInfo.privacyOptions.forEach(function (p) { $("ttPrivacy").add(new Option(TT_PRIVACY[p] || p, p)); });
+    $("ttComment").disabled = ttInfo.commentDisabled; $("ttDuet").disabled = ttInfo.duetDisabled; $("ttStitch").disabled = ttInfo.stitchDisabled;
+    $("ttLoading").hidden = true; $("ttForm").hidden = false;
+  }
+  function ttLegal() {
+    var disclose = $("ttDisclose").checked, branded = disclose && $("ttBranded").checked, yours = disclose && $("ttYourBrand").checked, el = $("ttLegal");
+    $("ttLabel").textContent = branded ? "Your video will be labeled \"Paid partnership\"." : yours ? "Your video will be labeled \"Promotional content\"." : disclose ? "Choose at least one option." : "";
+    var only = Array.prototype.filter.call($("ttPrivacy").options, function (o) { return o.value === "SELF_ONLY"; })[0];
+    if (only) { only.disabled = branded; if (branded && $("ttPrivacy").value === "SELF_ONLY") $("ttPrivacy").selectedIndex = 0; }
+    el.textContent = "";
+    el.append(document.createTextNode("By posting, you agree to TikTok's "));
+    if (branded) { el.appendChild(link("Branded Content Policy", "https://www.tiktok.com/legal/page/global/bc-policy/en")); el.append(document.createTextNode(" and ")); }
+    el.appendChild(link("Music Usage Confirmation", "https://www.tiktok.com/legal/page/global/music-usage-confirmation/en")); el.append(document.createTextNode("."));
+  }
+  function link(text, href) { var a = document.createElement("a"); a.href = href; a.target = "_blank"; a.rel = "noopener"; a.textContent = text; return a; }
+  $("toTiktok").addEventListener("change", function () { if (this.checked) loadTikTok(); else $("ttFields").hidden = true; });
+  ["ttDisclose", "ttYourBrand", "ttBranded"].forEach(function (id) { $(id).addEventListener("change", function () { $("ttDiscloseBox").hidden = !$("ttDisclose").checked; ttLegal(); }); });
+  $("postBtn").addEventListener("click", openPost);
+  $("postDialog").addEventListener("change", function () { $("postStatus").textContent = ""; });
+  $("postCancel").addEventListener("click", function () { $("postDialog").close(); });
+  $("postSend").addEventListener("click", async function () {
+    var targets = {}, say = function (m) { $("postStatus").textContent = m; };
+    if ($("toYoutube").checked) targets.youtube = { privacy: $("ytPrivacy").value };
+    if ($("toInstagram").checked) { if (lastClip.blob.type.indexOf("mp4") < 0) { say("Instagram needs an MP4 clip. Export it again in the latest Chrome or Edge."); return; } targets.instagram = {}; }
+    if ($("toTiktok").checked) {
+      if (!ttInfo) { say("Wait for your TikTok settings to load."); return; }
+      if (!$("ttPrivacy").value) { say("Choose who can see your TikTok post."); $("ttPrivacy").focus(); return; }
+      if ($("ttDisclose").checked && !$("ttYourBrand").checked && !$("ttBranded").checked) { say("Choose Your brand, Branded content, or both."); return; }
+      targets.tiktok = { privacy: $("ttPrivacy").value, allowComment: $("ttComment").checked, allowDuet: $("ttDuet").checked, allowStitch: $("ttStitch").checked, disclose: $("ttDisclose").checked, yourBrand: $("ttYourBrand").checked, branded: $("ttBranded").checked, consent: true };
+    }
+    if (!Object.keys(targets).length) { say("Choose at least one account to post to."); return; }
+    var b = this; b.disabled = true; b.textContent = "Posting..."; say("");
+    var d = await Auth.post("/api/posts", { clipId: lastClip.id, caption: $("postCaption").value.trim(), targets: targets });
+    b.disabled = false; b.textContent = "Post now";
+    if (!d.ok) { say(d.message || "That didn't post. Try again."); return; }
+    posts = d.posts; renderPosts(); $("postDialog").close();
+    $("postNote").textContent = "Uploading to " + Object.keys(targets).map(function (p) { return NAMES[p]; }).join(", ") + ". It can take a few minutes to appear.";
+  });
+
+  /* Coins */
+  async function buyCoins(pack, statusEl) {
+    if (Auth.mode !== "server") { statusEl.textContent = "Buying coins works once your site is live."; return; }
+    statusEl.textContent = "Opening checkout...";
+    try { sessionStorage.setItem("cutline_coins_before", String(coins)); } catch (e) {}
+    var d = await Auth.post("/api/coins/checkout", { pack: pack });
+    if (d.ok) location.href = d.url; else statusEl.textContent = d.message || "Checkout couldn't start. Try again.";
+  }
+  document.querySelectorAll("[data-pack]").forEach(function (b) { b.addEventListener("click", function () { buyCoins(b.dataset.pack, b.closest("dialog") ? $("payStatus") : $("coinStatus")); }); });
+  function readReturn() {
+    var q = new URLSearchParams(location.search), p = NAMES[q.get("platform")] || "That account";
+    if (q.has("connected")) notice(p + " is connected." + (q.get("platform") === "tiktok" ? " You'll confirm each TikTok post before it uploads." : " New clips will upload automatically."));
+    else if (q.get("connect") === "denied") notice(p + " wasn't connected because access was declined. Try again and allow access.", true);
+    else if (q.get("connect") === "expired") notice("That connection took too long. Select Connect again.", true);
+    else if (q.get("connect") === "unavailable") notice(p + " uploads aren't set up on this site yet.", true);
+    else if (q.get("connect") === "failed") notice(p + " couldn't be connected. For Instagram, use a Business or Creator account. Then try again.", true);
+    else if (q.get("coins") === "success") { var before = -1; try { var v = sessionStorage.getItem("cutline_coins_before"); if (v !== null) before = Number(v); sessionStorage.removeItem("cutline_coins_before"); } catch (e) {} notice("Payment received. Your coins will appear in a moment."); waitForCoins(before, 0); }
+    else if (q.get("coins") === "canceled") notice("Checkout was canceled. You weren't charged.");
+    if (location.search) history.replaceState(null, "", location.pathname + location.hash);
+  }
+  async function waitForCoins(before, tries) {
+    var d = await Auth.get("/api/me"); if (d.ok) applyUsage(d.user);
+    if (d.ok && d.user.coins > before) { notice("You have " + d.user.coins + " coins. Each coin makes 1 clip."); return; }
+    if (tries < 10) setTimeout(function () { waitForCoins(before, tries + 1); }, 3000);
+    else notice("Your payment went through, but the coins haven't arrived yet. Refresh in a few minutes.", true);
+  }
+
+  /* Earnings estimate */
+  var money = function (n) { return (n < 0 ? "-$" : "$") + Math.abs(n).toLocaleString("en-US", { maximumFractionDigits: 0 }); };
+  function updateCalc() { var v = +$("views").value, ap = +$("approved").value, r = Math.max(0, +$("rate").value || 0), p = +$("planCost").value, gross = v / 1000 * r * ap / 100, net = gross * .9 - p, per = r * ap / 100 * .9 / 1000; $("viewsOut").textContent = v.toLocaleString("en-US"); $("approvedOut").textContent = ap + "%"; $("net").textContent = money(net); $("netDetail").textContent = "Estimated monthly take-home: " + money(gross) + " earned, minus a 10% marketplace fee and your $" + p + " plan." + (per > 0 ? " Your plan pays for itself at about " + Math.ceil(p / per).toLocaleString("en-US") + " views." : "") + " Actual pay depends on each campaign."; }
+  ["views", "approved", "rate", "planCost"].forEach(function (id) { $(id).addEventListener("input", updateCalc); });
+
+  /* Free clip limit and plans */
+  function openPay(limit) {
+    $("payTitle").textContent = limit ? "You're out of clips" : "Get more clips";
+    $("payText").textContent = "Buy coins to keep making clips. 1 coin makes 1 clip, and coins never expire.";
+    $("payStatus").textContent = ""; if (!$("payDialog").open) $("payDialog").showModal();
+    $("resetFree").hidden = Auth.mode !== "preview";
+  }
+  document.querySelectorAll("[data-plan]").forEach(function (b) { b.addEventListener("click", function () {
+    var link = CHECKOUT[b.dataset.plan];
+    if (link) { var a = document.createElement("a"); a.href = link; a.target = "_blank"; a.rel = "noopener"; document.body.appendChild(a); a.click(); a.remove(); return; }
+    if (!$("payDialog").open) openPay(!canExport());
+    $("payStatus").textContent = "Checkout isn't available yet, so this plan can't be purchased right now.";
+  }); });
+  $("payClose").addEventListener("click", function () { $("payDialog").close(); });
+  $("logoutBtn").addEventListener("click", function () { if (!S.exporting) Auth.logout(); });
+  $("resetFree").addEventListener("click", function () { Auth.resetPreview(); setUsed(0); $("payDialog").close(); status("Free clips reset to 5."); });
+
+  /* Page details */
+  document.querySelectorAll('a[href^="#"]').forEach(function (a) { a.addEventListener("click", function (e) { var t = document.getElementById(a.getAttribute("href").slice(1)); if (t) { e.preventDefault(); t.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" }); } }); });
+  document.querySelectorAll(".card").forEach(function (c) { c.addEventListener("pointermove", function (e) { var r = c.getBoundingClientRect(); c.style.setProperty("--mx", (e.clientX - r.left) + "px"); c.style.setProperty("--my", (e.clientY - r.top) + "px"); }); });
+  var words = ["Live streams", "Podcasts", "Gaming", "Interviews", "Reactions", "Campaign clips"], tick = $("tick"); words.concat(words, words, words).forEach(function (w) { var s = document.createElement("span"); s.textContent = w; tick.appendChild(s); });
+  var bars = $("bars"); for (var i = 0; i < 34; i++) { var b = document.createElement("i"), hot = i > 20 && i < 27; b.style.height = (hot ? 58 + 40 * Math.abs(Math.sin(i * 1.4)) : 16 + 34 * Math.abs(Math.sin(i * 2.3))) + "%"; if (hot) b.className = "hot"; bars.appendChild(b); }
+
+  S.bins = sampleBins(); resetSegs(); $("playBtn").textContent = S.playing ? "Pause" : "Play";
+  renderFree(); renderMoments(); updateCalc(); layout();
+  if ("IntersectionObserver" in window) new IntersectionObserver(function (en) { S.visible = en[0].isIntersecting; }).observe(preview);
+  addEventListener("resize", function () { renderWave(); renderEditor(); });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(layout);
+  requestAnimationFrame(frame);
+  Auth.onReady(function (u) { usedClips = u.clipsUsed; clipLimit = u.clipLimit; unlimited = u.role === "admin"; paidPlan = u.plan !== "free"; coins = u.coins || 0; renderFree(); layout(); readReturn(); loadConnections(); if (window.CutlineAdminStart) window.CutlineAdminStart(); });
+})();
+</script>
+<!--APP-JS-END-->
+</body>
+</html>
