@@ -242,11 +242,11 @@ async function adminAction(env, me, action, body) {
    they're needed, so the Stripe catalog stays clean and the Customer Portal can switch plans. */
 const STRIPE_VERSION = "2026-10-28.endive";
 const CATALOG = {
-  cutline_solo_monthly: { name: "Cutline Solo", cents: 1900, recurring: true, plan: "solo" },
-  cutline_pro_monthly: { name: "Cutline Pro", cents: 4900, recurring: true, plan: "pro" },
-  cutline_coins_10: { name: "Cutline 10 coins", cents: 500, coins: 10, pack: "starter" },
-  cutline_coins_50: { name: "Cutline 50 coins", cents: 2000, coins: 50, pack: "creator" },
-  cutline_coins_200: { name: "Cutline 200 coins", cents: 6000, coins: 200, pack: "studio" }
+  cutline_solo_monthly: { name: "Cutline Solo", cents: 1999, recurring: true, plan: "solo" },
+  cutline_pro_monthly: { name: "Cutline Pro", cents: 4999, recurring: true, plan: "pro" },
+  cutline_coins_10: { name: "Cutline 10 coins", cents: 499, coins: 10, pack: "starter" },
+  cutline_coins_50: { name: "Cutline 50 coins", cents: 1999, coins: 50, pack: "creator" },
+  cutline_coins_200: { name: "Cutline 200 coins", cents: 4999, coins: 200, pack: "studio" }
 };
 const PLAN_KEYS = { solo: "cutline_solo_monthly", pro: "cutline_pro_monthly" };
 const PACK_KEYS = { starter: "cutline_coins_10", creator: "cutline_coins_50", studio: "cutline_coins_200" };
@@ -270,9 +270,10 @@ async function priceFor(env, key) {
   const item = CATALOG[key];
   const found = await stripe(env, "prices", { lookup_keys: [key], active: "true", limit: 1 }, "GET");
   let price = found.data && found.data[0];
-  if (!price) {
-    const product = await stripe(env, "products", { name: item.name, metadata: { cutline_key: key } });
-    price = await stripe(env, "prices", Object.assign({ product: product.id, currency: "usd", unit_amount: item.cents, lookup_key: key }, item.recurring ? { recurring: { interval: "month" } } : {}));
+  if (!price || price.unit_amount !== item.cents) {
+    // No price with this lookup key yet, or its amount is out of date. Reuse its product if there is one.
+    const productId = price ? price.product : (await stripe(env, "products", { name: item.name, metadata: { cutline_key: key } })).id;
+    price = await stripe(env, "prices", Object.assign({ product: productId, currency: "usd", unit_amount: item.cents, lookup_key: key, transfer_lookup_key: "true" }, item.recurring ? { recurring: { interval: "month" } } : {}));
   }
   priceCache[key] = price.id;
   return price.id;

@@ -539,7 +539,7 @@ footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; g
       <div class="field"><label for="approved">Views approved for payment <output id="approvedOut" for="approved"></output></label><input id="approved" type="range" min="10" max="100" step="5" value="70"></div>
       <div class="calc-two">
         <div class="field"><label for="rate">Pay per 1,000 views ($)</label><input id="rate" type="number" min="0" max="50" step="0.05" value="1.00"></div>
-        <div class="field"><label for="planCost">Cutline plan</label><select id="planCost"><option value="19">Solo, $19/mo</option><option value="49">Pro, $49/mo</option></select></div>
+        <div class="field"><label for="planCost">Cutline plan</label><select id="planCost"><option value="19.99">Solo, $19.99/mo</option><option value="49.99">Pro, $49.99/mo</option></select></div>
       </div>
       <div class="result" aria-live="polite"><div class="result-big" id="net"></div><p id="netDetail"></p></div>
     </div>
@@ -549,16 +549,16 @@ footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; g
     <h2>5 clips free. Then pick a plan.</h2>
     <div class="plans">
       <div class="plan"><h3>Free trial</h3><div class="price">$0</div><ul><li>5 finished clips</li><li>Captions and vertical reframing</li><li>No card needed</li></ul><a class="btn btn-ghost" href="#studio">Make a free clip</a></div>
-      <div class="plan main"><h3>Solo</h3><div class="price">$19 <small>per month</small></div><ul><li>100 clips a month</li><li>Captions and vertical reframing</li><li>Auto upload to YouTube, Instagram, and TikTok</li></ul><button class="btn btn-flare" type="button" data-plan="solo">Choose Solo</button></div>
-      <div class="plan"><h3>Pro</h3><div class="price">$49 <small>per month</small></div><ul><li>500 clips a month</li><li>Captions and vertical reframing</li><li>Auto upload to YouTube, Instagram, and TikTok</li></ul><button class="btn btn-ghost" type="button" data-plan="pro">Choose Pro</button></div>
+      <div class="plan main"><h3>Solo</h3><div class="price">$19.99 <small>per month</small></div><ul><li>100 clips a month</li><li>Captions and vertical reframing</li><li>Auto upload to YouTube, Instagram, and TikTok</li></ul><button class="btn btn-flare" type="button" data-plan="solo">Choose Solo</button></div>
+      <div class="plan"><h3>Pro</h3><div class="price">$49.99 <small>per month</small></div><ul><li>500 clips a month</li><li>Captions and vertical reframing</li><li>Auto upload to YouTube, Instagram, and TikTok</li></ul><button class="btn btn-ghost" type="button" data-plan="pro">Choose Pro</button></div>
     </div>
     <p class="plan-status" id="planStatus" role="status"></p>
     <div class="coins-strip">
       <div><h3>Need more clips? Buy coins.</h3><p>1 coin makes 1 extra clip after your free or plan clips run out. Coins never expire.</p></div>
       <div class="coin-packs">
-        <button class="coin" type="button" data-pack="starter"><b>10 coins</b><span>$5</span></button>
-        <button class="coin" type="button" data-pack="creator"><b>50 coins</b><span>$20</span></button>
-        <button class="coin" type="button" data-pack="studio"><b>200 coins</b><span>$60</span></button>
+        <button class="coin" type="button" data-pack="starter"><b>10 coins</b><span>$4.99</span></button>
+        <button class="coin" type="button" data-pack="creator"><b>50 coins</b><span>$19.99</span></button>
+        <button class="coin" type="button" data-pack="studio"><b>200 coins</b><span>$49.99</span></button>
       </div>
       <p class="coin-status" id="coinStatus" role="status"></p>
     </div>
@@ -587,14 +587,14 @@ footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; g
   <h3 id="payTitle">You've used your 5 free clips</h3>
   <p id="payText">Choose a plan to keep exporting clips.</p>
   <div class="coin-packs">
-    <button class="coin" type="button" data-pack="starter"><b>10 coins</b><span>$5</span></button>
-    <button class="coin" type="button" data-pack="creator"><b>50 coins</b><span>$20</span></button>
-    <button class="coin" type="button" data-pack="studio"><b>200 coins</b><span>$60</span></button>
+    <button class="coin" type="button" data-pack="starter"><b>10 coins</b><span>$4.99</span></button>
+    <button class="coin" type="button" data-pack="creator"><b>50 coins</b><span>$19.99</span></button>
+    <button class="coin" type="button" data-pack="studio"><b>200 coins</b><span>$49.99</span></button>
   </div>
   <p class="or">Or choose a monthly plan</p>
   <div class="pay-plans">
-    <button class="btn btn-ghost" type="button" data-plan="solo">Solo, $19/month</button>
-    <button class="btn btn-ghost" type="button" data-plan="pro">Pro, $49/month</button>
+    <button class="btn btn-ghost" type="button" data-plan="solo">Solo, $19.99/month</button>
+    <button class="btn btn-ghost" type="button" data-plan="pro">Pro, $49.99/month</button>
   </div>
   <p id="payStatus" role="status"></p>
   <div class="pay-foot"><button class="linkish" id="resetFree" type="button" hidden>Reset free clips for testing</button><button class="linkish" id="payClose" type="button">Close</button></div>
