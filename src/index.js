@@ -1,0 +1,403 @@
+/* Cutline server. Serves the page, keeps accounts in D1, and handles Stripe checkout.
+   Secrets to set in Cloudflare (Worker, Settings, Variables and Secrets):
+   ADMIN_EMAIL, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, and for reset emails RESEND_API_KEY and EMAIL_FROM. */
+import PAGE from "./app.html";
+
+const PLAN_LIMITS = { free: 5, solo: 100, pro: 500 };
+const PLANS = { solo: { cents: 1900, name: "Cutline Solo" }, pro: { cents: 4900, name: "Cutline Pro" } };
+const PACKS = { starter: { coins: 10, cents: 500 }, creator: { coins: 50, cents: 2000 }, studio: { coins: 200, cents: 6000 } };
+const COOKIE = "cl_session";
+const SESSION_SECONDS = 30 * 86400;
+const PBKDF2_ITERATIONS = 100000; // the most Workers allows
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const enc = new TextEncoder();
+
+export default {
+  async fetch(request, env) {
+    const url = new URL(request.url);
+    try {
+      if (url.pathname.startsWith("/api/")) return await api(request, env, url);
+      if (url.pathname.startsWith("/connect/")) return Response.redirect(url.origin + "/?connect=unavailable&platform=" + encodeURIComponent(url.pathname.split("/")[2] || ""), 302);
+      if (request.method === "GET" && (url.pathname === "/" || url.pathname === "/index.html")) return await page(request, env);
+      return new Response("Not found", { status: 404 });
+    } catch (err) {
+      console.error(err && err.stack || err);
+      if (url.pathname.startsWith("/api/")) return json({ ok: false, code: "server_error", message: "Something went wrong on our end. Try again in a minute." }, 500);
+      return new Response("Something went wrong. Try again in a minute.", { status: 500 });
+    }
+  }
+};
+
+/* ---------- Page ---------- */
+async function page(request, env) {
+  const user = await currentUser(request, env);
+  const pub = user ? publicUser(user, env) : null;
+  let html = PAGE;
+  if (!pub || pub.role !== "admin") html = html.replace(/<!--ADMIN-START-->[\s\S]*?<!--ADMIN-END-->/g, "");
+  const boot = "<script>window.CUTLINE_SERVER=" + JSON.stringify({ user: pub }).replace(/</g, "\\u003c") + ";</script>";
+  html = html.replace("<!--SERVER-MODE-->", boot);
+  return new Response(html, {
+    headers: {
+      "Content-Type": "text/html; charset=utf-8",
+      "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff",
+      "X-Frame-Options": "DENY",
+      "Referrer-Policy": "strict-origin-when-cross-origin"
+    }
+  });
+}
+
+/* ---------- API ---------- */
+async function api(request, env, url) {
+  const path = url.pathname, method = request.method;
+  if (path === "/api/stripe/webhook" && method === "POST") return stripeWebhook(request, env);
+  if (method === "POST") {
+    const origin = request.headers.get("Origin");
+    if (!origin || origin !== url.origin) return json({ ok: false, code: "bad_origin", message: "That request wasn't allowed." }, 403);
+  }
+  const body = method === "POST" ? await readJson(request) : {};
+  const user = await currentUser(request, env);
+  const route = method + " " + path;
+
+  switch (route) {
+    case "POST /api/signup": return signup(env, body, url);
+    case "POST /api/login": return login(env, body, url);
+    case "POST /api/logout": return logout(request, env);
+    case "POST /api/forgot": return forgot(env, body, url);
+    case "POST /api/reset": return resetPassword(env, body);
+  }
+  if (!user) return json({ ok: false, code: "auth_required", message: "Log in to continue." }, 401);
+
+  switch (route) {
+    case "GET /api/me": return json({ ok: true, user: publicUser(user, env) });
+    case "POST /api/clips/claim": return claimClip(env, user);
+    case "POST /api/clips/release": return releaseClip(env, user, body);
+    case "POST /api/clips/file": return json({ ok: false, message: "Saving clips to Cutline isn't available yet. Save the clip and upload it yourself." });
+    case "GET /api/connections": return json({ ok: true, connections: ["youtube", "instagram", "tiktok"].map(function (p) { return { platform: p, name: { youtube: "YouTube", instagram: "Instagram", tiktok: "TikTok" }[p], connected: false, available: false }; }), posts: [] });
+    case "GET /api/posts": return json({ ok: true, posts: [] });
+    case "POST /api/import": return json({ ok: false, message: "Importing from Twitch and similar sites isn't available yet. Upload the file or paste a YouTube or direct video link." });
+    case "POST /api/import-clip": return json({ ok: false, message: "Making finished clips from YouTube links isn't available yet. Your cut is saved on this page." });
+    case "POST /api/plans/checkout": return planCheckout(env, user, body, url);
+    case "POST /api/coins/checkout": return coinCheckout(env, user, body, url);
+    case "POST /api/billing/portal": return billingPortal(env, user, url);
+  }
+  if (path.startsWith("/api/admin/")) {
+    if (!isAdmin(user, env)) return json({ ok: false, code: "forbidden", message: "Only the admin can do that." }, 403);
+    if (route === "GET /api/admin/users") return adminList(env);
+    if (method === "POST") return adminAction(env, user, path.slice("/api/admin/users/".length), body);
+  }
+  return json({ ok: false, code: "not_found", message: "That isn't available." }, 404);
+}
+
+/* ---------- Accounts ---------- */
+async function signup(env, body, url) {
+  const email = cleanEmail(body.email), password = String(body.password || "");
+  if (!email) return json({ ok: false, message: "Enter a valid email address, like name@example.com." }, 400);
+  if (password.length < 8 || password.length > 200) return json({ ok: false, message: "Use a password with at least 8 characters." }, 400);
+  if (body.acceptedRights !== true) return json({ ok: false, message: "Confirm that you'll only upload videos you have permission to use." }, 400);
+  const exists = await env.DB.prepare("SELECT id FROM users WHERE email = ?").bind(email).first();
+  if (exists) return json({ ok: false, message: "An account with this email already exists. Log in instead." }, 409);
+  const id = crypto.randomUUID(), salt = randomHex(16), hash = await hashPassword(password, salt), now = new Date().toISOString();
+  try {
+    await env.DB.prepare("INSERT INTO users (id, email, pass_hash, pass_salt, accepted_rights, created_at, last_login) VALUES (?, ?, ?, ?, 1, ?, ?)").bind(id, email, hash, salt, now, now).run();
+  } catch (e) {
+    return json({ ok: false, message: "An account with this email already exists. Log in instead." }, 409);
+  }
+  return json({ ok: true }, 200, { "Set-Cookie": await newSession(env, id) });
+}
+
+async function login(env, body, url) {
+  const email = cleanEmail(body.email), password = String(body.password || "");
+  const bad = json({ ok: false, message: "That email or password is incorrect." }, 401);
+  if (!email || !password) return bad;
+  const since = Date.now() - 15 * 60 * 1000;
+  const fails = await env.DB.prepare("SELECT COUNT(*) AS n FROM login_fails WHERE email = ? AND at > ?").bind(email, since).first();
+  if (fails && fails.n >= 10) return json({ ok: false, message: "Too many tries. Wait 15 minutes, or reset your password." }, 429);
+  const user = await env.DB.prepare("SELECT * FROM users WHERE email = ?").bind(email).first();
+  const hash = await hashPassword(password, user ? user.pass_salt : "no-user-salt");
+  if (!user || !safeEqual(hash, user.pass_hash)) {
+    await env.DB.prepare("INSERT INTO login_fails (email, at) VALUES (?, ?)").bind(email, Date.now()).run();
+    return bad;
+  }
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM login_fails WHERE email = ? OR at < ?").bind(email, since),
+    env.DB.prepare("DELETE FROM sessions WHERE expires_at < ?").bind(nowSec()),
+    env.DB.prepare("UPDATE users SET last_login = ? WHERE id = ?").bind(new Date().toISOString(), user.id)
+  ]);
+  return json({ ok: true }, 200, { "Set-Cookie": await newSession(env, user.id) });
+}
+
+async function logout(request, env) {
+  const token = readCookie(request, COOKIE);
+  if (token) await env.DB.prepare("DELETE FROM sessions WHERE token_hash = ?").bind(await sha256(token)).run();
+  return json({ ok: true }, 200, { "Set-Cookie": COOKIE + "=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0" });
+}
+
+async function forgot(env, body, url) {
+  const email = cleanEmail(body.email);
+  if (!email) return json({ ok: false, message: "Enter a valid email address, like name@example.com." }, 400);
+  if (!env.RESEND_API_KEY || !env.EMAIL_FROM) return json({ ok: false, message: "Password reset emails aren't turned on yet. Contact Cutline support for help." });
+  const done = json({ ok: true });
+  const user = await env.DB.prepare("SELECT id, email FROM users WHERE email = ?").bind(email).first();
+  if (!user) return done;
+  const recent = await env.DB.prepare("SELECT COUNT(*) AS n FROM resets WHERE user_id = ? AND expires_at > ?").bind(user.id, nowSec()).first();
+  if (recent && recent.n >= 3) return done;
+  const token = randomHex(32);
+  await env.DB.prepare("INSERT INTO resets (token_hash, user_id, expires_at) VALUES (?, ?, ?)").bind(await sha256(token), user.id, nowSec() + 3600).run();
+  const link = url.origin + "/?reset=" + token;
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { "Authorization": "Bearer " + env.RESEND_API_KEY, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      from: env.EMAIL_FROM, to: [user.email], subject: "Reset your Cutline password",
+      text: "Someone asked to reset the password for your Cutline account.\n\nOpen this link to choose a new password. It works for 1 hour.\n" + link + "\n\nIf you didn't ask for this, you can ignore this email.",
+      html: "<p>Someone asked to reset the password for your Cutline account.</p><p><a href=\"" + link + "\">Choose a new password</a>. The link works for 1 hour.</p><p>If you didn't ask for this, you can ignore this email.</p>"
+    })
+  });
+  if (!res.ok) { console.error("Resend failed", res.status, await res.text()); return json({ ok: false, message: "The reset email couldn't be sent. Try again in a few minutes." }); }
+  return done;
+}
+
+async function resetPassword(env, body) {
+  const token = String(body.token || ""), password = String(body.password || "");
+  if (password.length < 8 || password.length > 200) return json({ ok: false, message: "Use a password with at least 8 characters." }, 400);
+  if (!/^[0-9a-f]{64}$/.test(token)) return json({ ok: false, message: "That reset link isn't valid. Go back and request a new one." }, 400);
+  const row = await env.DB.prepare("SELECT r.user_id, u.email FROM resets r JOIN users u ON u.id = r.user_id WHERE r.token_hash = ? AND r.used = 0 AND r.expires_at > ?").bind(await sha256(token), nowSec()).first();
+  if (!row) return json({ ok: false, message: "That reset link expired or was already used. Go back and request a new one." }, 400);
+  const salt = randomHex(16), hash = await hashPassword(password, salt);
+  await env.DB.batch([
+    env.DB.prepare("UPDATE users SET pass_hash = ?, pass_salt = ? WHERE id = ?").bind(hash, salt, row.user_id),
+    env.DB.prepare("UPDATE resets SET used = 1 WHERE user_id = ?").bind(row.user_id),
+    env.DB.prepare("DELETE FROM sessions WHERE user_id = ?").bind(row.user_id),
+    env.DB.prepare("DELETE FROM login_fails WHERE email = ?").bind(row.email)
+  ]);
+  return json({ ok: true, email: row.email });
+}
+
+/* ---------- Clips ---------- */
+async function claimClip(env, user) {
+  let source = null;
+  if (isAdmin(user, env)) source = "admin";
+  else if (user.plan !== "free" && PLAN_LIMITS[user.plan] && await bump(env, "UPDATE users SET plan_used = plan_used + 1 WHERE id = ? AND plan_used < ?", user.id, PLAN_LIMITS[user.plan])) source = "plan";
+  else if (user.plan === "free" && await bump(env, "UPDATE users SET free_used = free_used + 1 WHERE id = ? AND free_used < ?", user.id, PLAN_LIMITS.free)) source = "free";
+  else if (await bump(env, "UPDATE users SET coins = coins - 1 WHERE id = ? AND coins > ?", user.id, 0)) source = "coin";
+  const fresh = publicUser(await getUserById(env, user.id), env);
+  if (!source) return json({ ok: false, code: "limit_reached", message: "You're out of clips.", clipsUsed: fresh.clipsUsed, coins: fresh.coins });
+  const id = crypto.randomUUID();
+  await env.DB.prepare("INSERT INTO claims (id, user_id, source, created_at) VALUES (?, ?, ?, ?)").bind(id, user.id, source, new Date().toISOString()).run();
+  return json({ ok: true, id: id, clipsUsed: fresh.clipsUsed, coins: fresh.coins });
+}
+
+async function releaseClip(env, user, body) {
+  const id = String(body.id || "");
+  const since = new Date(Date.now() - 3 * 3600 * 1000).toISOString();
+  const claim = await env.DB.prepare("SELECT * FROM claims WHERE id = ? AND user_id = ? AND released = 0 AND created_at > ?").bind(id, user.id, since).first();
+  if (claim) {
+    const undo = { plan: "UPDATE users SET plan_used = MAX(0, plan_used - 1) WHERE id = ?", free: "UPDATE users SET free_used = MAX(0, free_used - 1) WHERE id = ?", coin: "UPDATE users SET coins = coins + 1 WHERE id = ?" }[claim.source];
+    const steps = [env.DB.prepare("UPDATE claims SET released = 1 WHERE id = ?").bind(id)];
+    if (undo) steps.push(env.DB.prepare(undo).bind(user.id));
+    await env.DB.batch(steps);
+  }
+  const fresh = publicUser(await getUserById(env, user.id), env);
+  return json({ ok: true, clipsUsed: fresh.clipsUsed, coins: fresh.coins });
+}
+
+async function bump(env, sql, id, n) {
+  const r = await env.DB.prepare(sql).bind(id, n).run();
+  return r.meta && r.meta.changes > 0;
+}
+
+/* ---------- Admin ---------- */
+async function adminList(env) {
+  const { results } = await env.DB.prepare("SELECT id, email, plan, free_used, plan_used, coins, created_at, last_login FROM users ORDER BY created_at DESC LIMIT 5000").all();
+  return json({ ok: true, users: results.map(function (u) {
+    return { id: u.id, email: u.email, plan: u.plan, role: isAdmin(u, env) ? "admin" : "user", clipsUsed: u.plan === "free" ? u.free_used : u.plan_used, coins: u.coins, createdAt: u.created_at, lastLogin: u.last_login };
+  }) });
+}
+
+async function adminAction(env, me, action, body) {
+  const target = await getUserById(env, String(body.id || ""));
+  if (!target) return json({ ok: false, message: "That account doesn't exist anymore." }, 404);
+  if (isAdmin(target, env)) return json({ ok: false, message: "You can't change the admin account here." }, 400);
+  if (action === "plan") {
+    if (!PLAN_LIMITS.hasOwnProperty(body.plan)) return json({ ok: false, message: "Pick Free, Solo, or Pro." }, 400);
+    await env.DB.prepare("UPDATE users SET plan = ? WHERE id = ?").bind(body.plan, target.id).run();
+  } else if (action === "reset") {
+    await env.DB.prepare("UPDATE users SET free_used = 0, plan_used = 0 WHERE id = ?").bind(target.id).run();
+  } else if (action === "coins") {
+    const amount = Math.trunc(Number(body.amount));
+    if (!amount || Math.abs(amount) > 1000) return json({ ok: false, message: "Give between 1 and 1,000 coins." }, 400);
+    await env.DB.prepare("UPDATE users SET coins = MAX(0, coins + ?) WHERE id = ?").bind(amount, target.id).run();
+  } else if (action === "delete") {
+    await env.DB.batch([
+      env.DB.prepare("DELETE FROM sessions WHERE user_id = ?").bind(target.id),
+      env.DB.prepare("DELETE FROM claims WHERE user_id = ?").bind(target.id),
+      env.DB.prepare("DELETE FROM resets WHERE user_id = ?").bind(target.id),
+      env.DB.prepare("DELETE FROM users WHERE id = ?").bind(target.id)
+    ]);
+  } else return json({ ok: false, message: "That isn't available." }, 404);
+  return json({ ok: true });
+}
+
+/* ---------- Stripe ---------- */
+async function stripe(env, path, params) {
+  const res = await fetch("https://api.stripe.com/v1/" + path, {
+    method: "POST",
+    headers: { "Authorization": "Bearer " + env.STRIPE_SECRET_KEY, "Content-Type": "application/x-www-form-urlencoded" },
+    body: formEncode(params)
+  });
+  const data = await res.json();
+  if (!res.ok) { const e = new Error(data.error && data.error.message || "Stripe error"); e.stripe = true; throw e; }
+  return data;
+}
+
+async function customerFor(env, user) {
+  if (user.stripe_customer) return user.stripe_customer;
+  const c = await stripe(env, "customers", { email: user.email, metadata: { user_id: user.id } });
+  await env.DB.prepare("UPDATE users SET stripe_customer = ? WHERE id = ?").bind(c.id, user.id).run();
+  return c.id;
+}
+
+const notReady = () => json({ ok: false, message: "Checkout isn't set up yet, so this can't be purchased right now." });
+
+async function planCheckout(env, user, body, url) {
+  if (!env.STRIPE_SECRET_KEY) return notReady();
+  const plan = PLANS[body.plan];
+  if (!plan) return json({ ok: false, message: "Pick Solo or Pro." }, 400);
+  if (user.plan !== "free" && user.stripe_subscription) return billingPortal(env, user, url);
+  try {
+    const customer = await customerFor(env, user);
+    const s = await stripe(env, "checkout/sessions", {
+      mode: "subscription", customer: customer, client_reference_id: user.id, allow_promotion_codes: "true",
+      success_url: url.origin + "/?plan=success", cancel_url: url.origin + "/?plan=canceled",
+      line_items: [{ quantity: 1, price_data: { currency: "usd", unit_amount: plan.cents, recurring: { interval: "month" }, product_data: { name: plan.name } } }],
+      metadata: { user_id: user.id, plan: body.plan },
+      subscription_data: { metadata: { user_id: user.id, plan: body.plan } }
+    });
+    return json({ ok: true, url: s.url });
+  } catch (e) { console.error(e); return json({ ok: false, message: "Checkout couldn't start. Try again in a minute." }); }
+}
+
+async function coinCheckout(env, user, body, url) {
+  if (!env.STRIPE_SECRET_KEY) return notReady();
+  const pack = PACKS[body.pack];
+  if (!pack) return json({ ok: false, message: "Pick a coin pack." }, 400);
+  try {
+    const customer = await customerFor(env, user);
+    const s = await stripe(env, "checkout/sessions", {
+      mode: "payment", customer: customer, client_reference_id: user.id,
+      success_url: url.origin + "/?coins=success", cancel_url: url.origin + "/?coins=canceled",
+      line_items: [{ quantity: 1, price_data: { currency: "usd", unit_amount: pack.cents, product_data: { name: pack.coins + " Cutline coins" } } }],
+      metadata: { user_id: user.id, pack: body.pack }
+    });
+    return json({ ok: true, url: s.url });
+  } catch (e) { console.error(e); return json({ ok: false, message: "Checkout couldn't start. Try again in a minute." }); }
+}
+
+async function billingPortal(env, user, url) {
+  if (!env.STRIPE_SECRET_KEY) return notReady();
+  if (!user.stripe_customer) return json({ ok: false, message: "There's no billing account to manage yet." });
+  try {
+    const s = await stripe(env, "billing_portal/sessions", { customer: user.stripe_customer, return_url: url.origin + "/#pricing" });
+    return json({ ok: true, url: s.url });
+  } catch (e) { console.error(e); return json({ ok: false, message: "The billing page couldn't open. Try again in a minute." }); }
+}
+
+async function stripeWebhook(request, env) {
+  if (!env.STRIPE_WEBHOOK_SECRET) return new Response("Webhook secret not set", { status: 500 });
+  const raw = await request.text();
+  if (!await validSignature(raw, request.headers.get("Stripe-Signature") || "", env.STRIPE_WEBHOOK_SECRET)) return new Response("Bad signature", { status: 400 });
+  const event = JSON.parse(raw);
+  const first = await env.DB.prepare("INSERT OR IGNORE INTO stripe_events (id, created_at) VALUES (?, ?)").bind(event.id, new Date().toISOString()).run();
+  if (!first.meta || !first.meta.changes) return json({ received: true, duplicate: true });
+  try {
+    await handleEvent(env, event);
+  } catch (e) {
+    await env.DB.prepare("DELETE FROM stripe_events WHERE id = ?").bind(event.id).run();
+    throw e;
+  }
+  return json({ received: true });
+}
+
+async function handleEvent(env, event) {
+  const o = event.data && event.data.object || {};
+  const meta = o.metadata || {};
+  if (event.type === "checkout.session.completed") {
+    if (o.mode === "payment" && o.payment_status === "paid" && PACKS[meta.pack]) {
+      await env.DB.prepare("UPDATE users SET coins = coins + ? WHERE id = ?").bind(PACKS[meta.pack].coins, meta.user_id).run();
+    } else if (o.mode === "subscription" && PLANS[meta.plan]) {
+      await env.DB.prepare("UPDATE users SET plan = ?, plan_used = 0, stripe_subscription = ?, stripe_customer = COALESCE(stripe_customer, ?) WHERE id = ?").bind(meta.plan, o.subscription, o.customer, meta.user_id).run();
+    }
+  } else if (event.type === "invoice.paid") {
+    if (o.billing_reason === "subscription_cycle") await env.DB.prepare("UPDATE users SET plan_used = 0 WHERE stripe_customer = ?").bind(o.customer).run();
+  } else if (event.type === "customer.subscription.updated") {
+    if (["canceled", "unpaid", "incomplete_expired"].indexOf(o.status) > -1) await endPlan(env, o.id);
+  } else if (event.type === "customer.subscription.deleted") {
+    await endPlan(env, o.id);
+  }
+}
+
+function endPlan(env, subId) {
+  return env.DB.prepare("UPDATE users SET plan = 'free', stripe_subscription = NULL WHERE stripe_subscription = ?").bind(subId).run();
+}
+
+async function validSignature(payload, header, secret) {
+  const parts = {}; let v1 = [];
+  header.split(",").forEach(function (kv) { const i = kv.indexOf("="); const k = kv.slice(0, i).trim(), v = kv.slice(i + 1).trim(); if (k === "v1") v1.push(v); else parts[k] = v; });
+  const t = Number(parts.t);
+  if (!t || !v1.length || Math.abs(Date.now() / 1000 - t) > 300) return false;
+  const key = await crypto.subtle.importKey("raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const expected = hex(await crypto.subtle.sign("HMAC", key, enc.encode(t + "." + payload)));
+  return v1.some(function (sig) { return safeEqual(sig, expected); });
+}
+
+/* ---------- Helpers ---------- */
+function json(data, status, headers) {
+  return new Response(JSON.stringify(data), { status: status || 200, headers: Object.assign({ "Content-Type": "application/json", "Cache-Control": "no-store" }, headers || {}) });
+}
+async function readJson(request) { try { const d = await request.json(); return d && typeof d === "object" ? d : {}; } catch (e) { return {}; } }
+function cleanEmail(v) { const e = String(v || "").trim().toLowerCase(); return e.length <= 254 && EMAIL_RE.test(e) ? e : ""; }
+function isAdmin(user, env) { return Boolean(env.ADMIN_EMAIL && user && user.email === String(env.ADMIN_EMAIL).trim().toLowerCase()); }
+function publicUser(u, env) {
+  const admin = isAdmin(u, env), paid = u.plan !== "free";
+  return { email: u.email, plan: u.plan, role: admin ? "admin" : "user", clipsUsed: paid ? u.plan_used : u.free_used, clipLimit: admin ? null : (PLAN_LIMITS[u.plan] || 5), coins: u.coins };
+}
+function nowSec() { return Math.floor(Date.now() / 1000); }
+function getUserById(env, id) { return env.DB.prepare("SELECT * FROM users WHERE id = ?").bind(id).first(); }
+async function currentUser(request, env) {
+  const token = readCookie(request, COOKIE);
+  if (!token || !/^[0-9a-f]{64}$/.test(token)) return null;
+  return env.DB.prepare("SELECT u.* FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > ?").bind(await sha256(token), nowSec()).first();
+}
+async function newSession(env, userId) {
+  const token = randomHex(32);
+  await env.DB.prepare("INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)").bind(await sha256(token), userId, nowSec() + SESSION_SECONDS).run();
+  return COOKIE + "=" + token + "; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=" + SESSION_SECONDS;
+}
+function readCookie(request, name) {
+  const all = request.headers.get("Cookie") || "";
+  for (const part of all.split(";")) { const i = part.indexOf("="); if (i > -1 && part.slice(0, i).trim() === name) return part.slice(i + 1).trim(); }
+  return "";
+}
+function hex(buf) { return Array.from(new Uint8Array(buf)).map(function (b) { return b.toString(16).padStart(2, "0"); }).join(""); }
+function randomHex(n) { return hex(crypto.getRandomValues(new Uint8Array(n))); }
+async function sha256(s) { return hex(await crypto.subtle.digest("SHA-256", enc.encode(s))); }
+async function hashPassword(pw, salt) {
+  const key = await crypto.subtle.importKey("raw", enc.encode(pw), "PBKDF2", false, ["deriveBits"]);
+  return hex(await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: enc.encode(salt), iterations: PBKDF2_ITERATIONS }, key, 256));
+}
+function safeEqual(a, b) {
+  a = String(a); b = String(b); let diff = a.length ^ b.length;
+  for (let i = 0; i < Math.max(a.length, b.length); i++) diff |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
+  return diff === 0;
+}
+function formEncode(obj) {
+  const out = [];
+  (function walk(v, key) {
+    if (v === undefined || v === null) return;
+    if (Array.isArray(v)) v.forEach(function (x, i) { walk(x, key + "[" + i + "]"); });
+    else if (typeof v === "object") Object.keys(v).forEach(function (k) { walk(v[k], key ? key + "[" + k + "]" : k); });
+    else out.push(encodeURIComponent(key) + "=" + encodeURIComponent(String(v)));
+  })(obj, "");
+  return out.join("&");
+}

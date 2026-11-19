@@ -1,7 +1,12 @@
 {
   "name": "cutlineclip",
-  "compatibility_date": "2026-11-01",
-  "assets": {
-    "directory": "./public"
-  }
+  "main": "src/index.js",
+  "compatibility_date": "2025-09-01",
+  // Accounts, sessions and payments live here.
+  "d1_databases": [
+    { "binding": "DB", "database_name": "cutline-db", "database_id": "b57b1dff-f949-4896-89e2-9d25f08ce9a1", "migrations_dir": "migrations" }
+  ],
+  // Keeps the variables and secrets you set in the Cloudflare dashboard on every deploy.
+  "keep_vars": true,
+  "observability": { "enabled": true }
 }

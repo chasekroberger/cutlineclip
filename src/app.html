@@ -180,6 +180,8 @@ section { padding-block: clamp(70px, 9vw, 130px); }
 .price { font-family: var(--display); font-style: italic; font-weight: 900; font-size: 62px; line-height: 1; }
 .price small { font-family: var(--body); font-style: normal; font-size: 16px; font-weight: 500; color: var(--dim); }
 .plan ul { margin: 0; padding-left: 19px; display: grid; gap: 5px; flex: 1; color: #dedbef; }
+.plan-status { margin-top: 14px; font-weight: 600; color: #ff8fbd; }
+.plan-status:empty { display: none; }
 .fine { margin-top: 26px; font-size: 15px; color: var(--dim); }
 
 .faq-grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 40px; }
@@ -537,6 +539,7 @@ footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; g
       <div class="plan main"><h3>Solo</h3><div class="price">$19 <small>per month</small></div><ul><li>100 clips a month</li><li>Captions and vertical reframing</li><li>Auto upload to YouTube, Instagram, and TikTok</li></ul><button class="btn btn-flare" type="button" data-plan="solo">Choose Solo</button></div>
       <div class="plan"><h3>Pro</h3><div class="price">$49 <small>per month</small></div><ul><li>500 clips a month</li><li>Captions and vertical reframing</li><li>Auto upload to YouTube, Instagram, and TikTok</li></ul><button class="btn btn-ghost" type="button" data-plan="pro">Choose Pro</button></div>
     </div>
+    <p class="plan-status" id="planStatus" role="status"></p>
     <div class="coins-strip">
       <div><h3>Need more clips? Buy coins.</h3><p>1 coin makes 1 extra clip after your free or plan clips run out. Coins never expire.</p></div>
       <div class="coin-packs">
@@ -715,7 +718,7 @@ window.CutlineAuth = (function () {
         backToLogin("Password updated. Log in with your new password.", d.email || "");
       } else {
         var r = await post("/api/forgot", { email: email });
-        if (r.code === "network") { say(r.message); return; }
+        if (r.code === "network" || !r.ok) { say(r.message || "The reset email couldn't be sent. Try again in a few minutes."); return; }
         say("If an account uses that email, a reset link is on its way. Check your inbox and spam folder.", true);
       }
     } finally { btn.disabled = false; btn.textContent = label; }
@@ -1304,6 +1307,7 @@ window.CutlineAdminStart = function () {
   async function refreshPosts() { var d = await Auth.get("/api/posts"); if (d.ok) { posts = d.posts; renderPosts(); } }
   async function afterExport() {
     if (Auth.mode !== "server" || !lastClip) return;
+    if (!conns.some(function (c) { return c.connected; })) return;
     var clip = lastClip, anyConnected = conns.some(function (c) { return c.connected; });
     $("postNote").textContent = anyConnected ? "Uploading your clip to Cutline..." : "";
     var r; try { r = await fetch("/api/clips/file?id=" + encodeURIComponent(clip.id), { method: "POST", credentials: "same-origin", headers: { "Content-Type": clip.blob.type }, body: clip.blob }); r = await r.json(); } catch (e) { r = { ok: false, message: "Your clip didn't upload. Check your connection, then select Post to your accounts." }; }
@@ -1409,8 +1413,17 @@ window.CutlineAdminStart = function () {
     else if (q.get("connect") === "failed") notice(p + " couldn't be connected. For Instagram, use a Business or Creator account. Then try again.", true);
     else if (q.get("coins") === "success") { var before = -1; try { var v = sessionStorage.getItem("cutline_coins_before"); if (v !== null) before = Number(v); sessionStorage.removeItem("cutline_coins_before"); } catch (e) {} notice("Payment received. Your coins will appear in a moment."); waitForCoins(before, 0); }
     else if (q.get("coins") === "canceled") notice("Checkout was canceled. You weren't charged.");
+    else if (q.get("plan") === "success") { notice("Payment received. Your plan will turn on in a moment."); waitForPlan(0); }
+    else if (q.get("plan") === "canceled") notice("Checkout was canceled. You weren't charged.");
     if (location.search) history.replaceState(null, "", location.pathname + location.hash);
   }
+  async function waitForPlan(tries) {
+    var d = await Auth.get("/api/me");
+    if (d.ok && d.user.plan !== "free") { paidPlan = true; clipLimit = d.user.clipLimit; applyUsage(d.user); planButtons(); notice("You're on the " + (d.user.plan === "pro" ? "Pro" : "Solo") + " plan. Your clips are ready to use."); return; }
+    if (tries < 10) setTimeout(function () { waitForPlan(tries + 1); }, 3000);
+    else notice("Your payment went through, but your plan hasn't turned on yet. Refresh in a few minutes.", true);
+  }
+  function planButtons() { if (Auth.mode === "server" && paidPlan) document.querySelectorAll("[data-plan]").forEach(function (b) { b.textContent = "Manage plan"; }); }
   async function waitForCoins(before, tries) {
     var d = await Auth.get("/api/me"); if (d.ok) applyUsage(d.user);
     if (d.ok && d.user.coins > before) { notice("You have " + d.user.coins + " coins. Each coin makes 1 clip."); return; }
@@ -1430,7 +1443,15 @@ window.CutlineAdminStart = function () {
     $("payStatus").textContent = ""; if (!$("payDialog").open) $("payDialog").showModal();
     $("resetFree").hidden = Auth.mode !== "preview";
   }
-  document.querySelectorAll("[data-plan]").forEach(function (b) { b.addEventListener("click", function () {
+  document.querySelectorAll("[data-plan]").forEach(function (b) { b.addEventListener("click", async function () {
+    if (Auth.mode === "server") {
+      var el = b.closest("dialog") ? $("payStatus") : $("planStatus");
+      el.textContent = paidPlan ? "Opening your billing page..." : "Opening checkout...";
+      var d = await Auth.post(paidPlan ? "/api/billing/portal" : "/api/plans/checkout", { plan: b.dataset.plan });
+      if (d.ok && d.url) { location.href = d.url; return; }
+      el.textContent = d.message || "Checkout couldn't start. Try again.";
+      return;
+    }
     var link = CHECKOUT[b.dataset.plan];
     if (link) { var a = document.createElement("a"); a.href = link; a.target = "_blank"; a.rel = "noopener"; document.body.appendChild(a); a.click(); a.remove(); return; }
     if (!$("payDialog").open) openPay(!canExport());
@@ -1452,7 +1473,7 @@ window.CutlineAdminStart = function () {
   addEventListener("resize", function () { renderWave(); renderEditor(); });
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(layout);
   requestAnimationFrame(frame);
-  Auth.onReady(function (u) { usedClips = u.clipsUsed; clipLimit = u.clipLimit; unlimited = u.role === "admin"; paidPlan = u.plan !== "free"; coins = u.coins || 0; renderFree(); layout(); readReturn(); loadConnections(); if (window.CutlineAdminStart) window.CutlineAdminStart(); });
+  Auth.onReady(function (u) { usedClips = u.clipsUsed; clipLimit = u.clipLimit; unlimited = u.role === "admin"; paidPlan = u.plan !== "free"; coins = u.coins || 0; planButtons(); renderFree(); layout(); readReturn(); loadConnections(); if (window.CutlineAdminStart) window.CutlineAdminStart(); });
 })();
 </script>
 <!--APP-JS-END-->
