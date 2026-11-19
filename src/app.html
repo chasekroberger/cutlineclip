@@ -222,7 +222,7 @@ details p { margin-top: 8px; color: var(--dim); max-width: 60ch; }
 #authStatus:empty, #resetStatus:empty { display: none; }
 #resetBack { justify-self: center; }
 .acct { max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
-.nav-links .btn-ghost { color: var(--text); }
+.nav-links .btn-ghost { color: var(--text); white-space: nowrap; }
 @media (max-width: 1080px) { .acct { display: none; } }
 @media (max-width: 760px) { .gate { grid-template-columns: minmax(0, 1fr); align-items: start; } .gate h1 { font-size: clamp(32px, 9.2vw, 72px); } }
 @media (max-width: 480px) { .nav-links .btn-white { display: none; } }
@@ -354,7 +354,18 @@ footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; g
   .calc-two { grid-template-columns: minmax(0, 1fr); }
   h1 .l1 { text-shadow: -2px 0 rgba(39,232,242,.75), 2px 0 rgba(255,46,136,.75); animation: none; }
 }
+.nav-links a.coin-pill.coin-pill { display: inline-flex; align-items: center; gap: 7px; min-height: 40px; padding: 6px 14px 6px 8px; border-radius: 999px; border: 1px solid rgba(255,214,102,.45); background: rgba(255,196,56,.12); color: var(--text); text-decoration: none; font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; transition: background .16s ease; }
+.nav-links a.coin-pill:hover { background: rgba(255,196,56,.22); }
+.coin-pill svg { width: 24px; height: 24px; flex: none; }
+.coin-pill b { font-size: 17px; }
+.coin-pill .coin-word { font-size: 14px; color: #ffe6a6; }
+.coin-pill.zero { border-color: var(--stroke); background: rgba(255,255,255,.06); }
+.coin-pill.zero .coin-word { color: var(--dim); }
+.coin-pill.bump svg { animation: coinbump .6s ease; }
+@keyframes coinbump { 0% { transform: scale(1); } 35% { transform: scale(1.35) rotate(-12deg); } 100% { transform: scale(1); } }
+@media (max-width: 480px) { .coin-pill .coin-word { display: none; } }
 @media (prefers-reduced-motion: reduce) {
+  .coin-pill.bump svg { animation: none; }
   html { scroll-behavior: auto; }
   .aurora i, .ticker div, h1 .l1 { animation: none; }
   .btn { transition: none; }
@@ -404,7 +415,7 @@ footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; g
     <a class="brand" href="#top"><svg viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="g" x1="0" x2="1"><stop stop-color="#ff2e88"/><stop offset="1" stop-color="#27e8f2"/></linearGradient></defs><path fill="url(#g)" d="M9 2H2v20h7v-4H6V6h3zM15 2h7v20h-7v-4h3V6h-3z"/><rect x="11" width="2" height="24" fill="#fff"/></svg>Cutline</a>
     <div class="nav-links">
       <a href="#features">Features</a><a href="#earnings">Earnings</a><a href="#pricing">Pricing</a><a href="#faq">FAQ</a>
-      <!--ADMIN-START--><a class="admin-link" id="adminLink" href="#admin" hidden>Admin</a><!--ADMIN-END--><span class="acct" id="acctEmail"></span><button class="btn btn-ghost" id="logoutBtn" type="button">Log out</button>
+      <!--ADMIN-START--><a class="admin-link" id="adminLink" href="#admin" hidden>Admin</a><!--ADMIN-END--><a class="coin-pill" id="coinPill" href="#pricing" aria-label="You have 0 coins. Buy more."><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="url(#coinG)"/><circle cx="12" cy="12" r="6.5" fill="none" stroke="#7a4b00" stroke-width="1.6" opacity=".55"/><path d="M12 8.4l1.1 2.3 2.5.3-1.85 1.7.5 2.5L12 14l-2.25 1.2.5-2.5L8.4 11l2.5-.3z" fill="#7a4b00" opacity=".7"/><defs><linearGradient id="coinG" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ffe27a"/><stop offset="1" stop-color="#f5a623"/></linearGradient></defs></svg><b id="coinCount">0</b><span class="coin-word" id="coinWord">coins</span></a><span class="acct" id="acctEmail"></span><button class="btn btn-ghost" id="logoutBtn" type="button">Log out</button>
       <a class="btn btn-white" href="#studio">Make a free clip</a>
     </div>
   </nav>
@@ -1194,6 +1205,12 @@ window.CutlineAdminStart = function () {
     if (unlimited) t = "Unlimited clips";
     else { t = paidPlan ? n + " of " + clipLimit + " plan clips left" : n ? n + " of " + clipLimit + " free clips left" : "No free clips left"; if (coins || !n) t += ", " + coinText; }
     el.textContent = t; el.className = canExport() ? "free" : "free out";
+    var pill = $("coinPill"), cc = $("coinCount");
+    if (pill && cc) {
+      var prev = cc.textContent; cc.textContent = coins.toLocaleString("en-US"); $("coinWord").textContent = coins === 1 ? "coin" : "coins";
+      pill.classList.toggle("zero", !coins); pill.setAttribute("aria-label", "You have " + coins + (coins === 1 ? " coin" : " coins") + ". Buy more.");
+      if (prev !== cc.textContent && prev !== "0" || (prev === "0" && coins > 0)) { pill.classList.remove("bump"); void pill.offsetWidth; pill.classList.add("bump"); }
+    }
     if (!S.exporting) $("exportBtn").textContent = !canExport() ? "Get more clips" : n > 0 ? "Export clip" : "Export clip (1 coin)";
   }
   function setUsed(n) { if (typeof n === "number") usedClips = n; renderFree(); }
