@@ -4,8 +4,6 @@
 import PAGE from "./app.html";
 
 const PLAN_LIMITS = { free: 5, solo: 100, pro: 500 };
-const PLANS = { solo: { cents: 1900, name: "Cutline Solo" }, pro: { cents: 4900, name: "Cutline Pro" } };
-const PACKS = { starter: { coins: 10, cents: 500 }, creator: { coins: 50, cents: 2000 }, studio: { coins: 200, cents: 6000 } };
 const COOKIE = "cl_session";
 const SESSION_SECONDS = 30 * 86400;
 const PBKDF2_ITERATIONS = 100000; // the most Workers allows
@@ -240,58 +238,87 @@ async function adminAction(env, me, action, body) {
 }
 
 /* ---------- Stripe ---------- */
-async function stripe(env, path, params) {
-  const res = await fetch("https://api.stripe.com/v1/" + path, {
-    method: "POST",
-    headers: { "Authorization": "Bearer " + env.STRIPE_SECRET_KEY, "Content-Type": "application/x-www-form-urlencoded" },
-    body: formEncode(params)
+/* One Product per plan and per coin pack. Prices are found by lookup key and created the first time
+   they're needed, so the Stripe catalog stays clean and the Customer Portal can switch plans. */
+const STRIPE_VERSION = "2026-10-28.endive";
+const CATALOG = {
+  cutline_solo_monthly: { name: "Cutline Solo", cents: 1900, recurring: true, plan: "solo" },
+  cutline_pro_monthly: { name: "Cutline Pro", cents: 4900, recurring: true, plan: "pro" },
+  cutline_coins_10: { name: "Cutline 10 coins", cents: 500, coins: 10, pack: "starter" },
+  cutline_coins_50: { name: "Cutline 50 coins", cents: 2000, coins: 50, pack: "creator" },
+  cutline_coins_200: { name: "Cutline 200 coins", cents: 6000, coins: 200, pack: "studio" }
+};
+const PLAN_KEYS = { solo: "cutline_solo_monthly", pro: "cutline_pro_monthly" };
+const PACK_KEYS = { starter: "cutline_coins_10", creator: "cutline_coins_50", studio: "cutline_coins_200" };
+const priceCache = {};
+
+async function stripe(env, path, params, method) {
+  method = method || "POST";
+  const qs = method === "GET" && params ? "?" + formEncode(params) : "";
+  const res = await fetch((env.STRIPE_API_BASE || "https://api.stripe.com") + "/v1/" + path + qs, {
+    method: method,
+    headers: { "Authorization": "Bearer " + env.STRIPE_SECRET_KEY, "Stripe-Version": STRIPE_VERSION, "Content-Type": "application/x-www-form-urlencoded" },
+    body: method === "POST" ? formEncode(params || {}) : undefined
   });
   const data = await res.json();
   if (!res.ok) { const e = new Error(data.error && data.error.message || "Stripe error"); e.stripe = true; throw e; }
   return data;
 }
 
+async function priceFor(env, key) {
+  if (priceCache[key]) return priceCache[key];
+  const item = CATALOG[key];
+  const found = await stripe(env, "prices", { lookup_keys: [key], active: "true", limit: 1 }, "GET");
+  let price = found.data && found.data[0];
+  if (!price) {
+    const product = await stripe(env, "products", { name: item.name, metadata: { cutline_key: key } });
+    price = await stripe(env, "prices", Object.assign({ product: product.id, currency: "usd", unit_amount: item.cents, lookup_key: key }, item.recurring ? { recurring: { interval: "month" } } : {}));
+  }
+  priceCache[key] = price.id;
+  return price.id;
+}
+
 async function customerFor(env, user) {
   if (user.stripe_customer) return user.stripe_customer;
-  const c = await stripe(env, "customers", { email: user.email, metadata: { user_id: user.id } });
+  const c = await stripe(env, "customers", { email: user.email, metadata: { user_id: user.id } }, "POST");
   await env.DB.prepare("UPDATE users SET stripe_customer = ? WHERE id = ?").bind(c.id, user.id).run();
   return c.id;
 }
 
+function integrationId() { let s = ""; const a = crypto.getRandomValues(new Uint8Array(8)); for (const b of a) s += String.fromCharCode(97 + b % 26); return "cutline-checkout-" + s; }
 const notReady = () => json({ ok: false, message: "Checkout isn't set up yet, so this can't be purchased right now." });
 
 async function planCheckout(env, user, body, url) {
   if (!env.STRIPE_SECRET_KEY) return notReady();
-  const plan = PLANS[body.plan];
-  if (!plan) return json({ ok: false, message: "Pick Solo or Pro." }, 400);
+  const key = PLAN_KEYS[body.plan];
+  if (!key) return json({ ok: false, message: "Pick Solo or Pro." }, 400);
   if (user.plan !== "free" && user.stripe_subscription) return billingPortal(env, user, url);
   try {
-    const customer = await customerFor(env, user);
     const s = await stripe(env, "checkout/sessions", {
-      mode: "subscription", customer: customer, client_reference_id: user.id, allow_promotion_codes: "true",
+      mode: "subscription", customer: await customerFor(env, user), client_reference_id: user.id, allow_promotion_codes: "true",
+      integration_identifier: integrationId(),
       success_url: url.origin + "/?plan=success", cancel_url: url.origin + "/?plan=canceled",
-      line_items: [{ quantity: 1, price_data: { currency: "usd", unit_amount: plan.cents, recurring: { interval: "month" }, product_data: { name: plan.name } } }],
-      metadata: { user_id: user.id, plan: body.plan },
-      subscription_data: { metadata: { user_id: user.id, plan: body.plan } }
+      line_items: [{ price: await priceFor(env, key), quantity: 1 }],
+      metadata: { user_id: user.id }, subscription_data: { metadata: { user_id: user.id } }
     });
     return json({ ok: true, url: s.url });
-  } catch (e) { console.error(e); return json({ ok: false, message: "Checkout couldn't start. Try again in a minute." }); }
+  } catch (e) { console.error("plan checkout", e.message); return json({ ok: false, message: "Checkout couldn't start. Try again in a minute." }); }
 }
 
 async function coinCheckout(env, user, body, url) {
   if (!env.STRIPE_SECRET_KEY) return notReady();
-  const pack = PACKS[body.pack];
-  if (!pack) return json({ ok: false, message: "Pick a coin pack." }, 400);
+  const key = PACK_KEYS[body.pack];
+  if (!key) return json({ ok: false, message: "Pick a coin pack." }, 400);
   try {
-    const customer = await customerFor(env, user);
     const s = await stripe(env, "checkout/sessions", {
-      mode: "payment", customer: customer, client_reference_id: user.id,
+      mode: "payment", customer: await customerFor(env, user), client_reference_id: user.id,
+      integration_identifier: integrationId(),
       success_url: url.origin + "/?coins=success", cancel_url: url.origin + "/?coins=canceled",
-      line_items: [{ quantity: 1, price_data: { currency: "usd", unit_amount: pack.cents, product_data: { name: pack.coins + " Cutline coins" } } }],
-      metadata: { user_id: user.id, pack: body.pack }
+      line_items: [{ price: await priceFor(env, key), quantity: 1 }],
+      metadata: { user_id: user.id }
     });
     return json({ ok: true, url: s.url });
-  } catch (e) { console.error(e); return json({ ok: false, message: "Checkout couldn't start. Try again in a minute." }); }
+  } catch (e) { console.error("coin checkout", e.message); return json({ ok: false, message: "Checkout couldn't start. Try again in a minute." }); }
 }
 
 async function billingPortal(env, user, url) {
@@ -300,7 +327,7 @@ async function billingPortal(env, user, url) {
   try {
     const s = await stripe(env, "billing_portal/sessions", { customer: user.stripe_customer, return_url: url.origin + "/#pricing" });
     return json({ ok: true, url: s.url });
-  } catch (e) { console.error(e); return json({ ok: false, message: "The billing page couldn't open. Try again in a minute." }); }
+  } catch (e) { console.error("portal", e.message); return json({ ok: false, message: "The billing page couldn't open. Try again in a minute." }); }
 }
 
 async function stripeWebhook(request, env) {
@@ -319,26 +346,93 @@ async function stripeWebhook(request, env) {
   return json({ received: true });
 }
 
-async function handleEvent(env, event) {
-  const o = event.data && event.data.object || {};
-  const meta = o.metadata || {};
-  if (event.type === "checkout.session.completed") {
-    if (o.mode === "payment" && o.payment_status === "paid" && PACKS[meta.pack]) {
-      await env.DB.prepare("UPDATE users SET coins = coins + ? WHERE id = ?").bind(PACKS[meta.pack].coins, meta.user_id).run();
-    } else if (o.mode === "subscription" && PLANS[meta.plan]) {
-      await env.DB.prepare("UPDATE users SET plan = ?, plan_used = 0, stripe_subscription = ?, stripe_customer = COALESCE(stripe_customer, ?) WHERE id = ?").bind(meta.plan, o.subscription, o.customer, meta.user_id).run();
-    }
-  } else if (event.type === "invoice.paid") {
-    if (o.billing_reason === "subscription_cycle") await env.DB.prepare("UPDATE users SET plan_used = 0 WHERE stripe_customer = ?").bind(o.customer).run();
-  } else if (event.type === "customer.subscription.updated") {
-    if (["canceled", "unpaid", "incomplete_expired"].indexOf(o.status) > -1) await endPlan(env, o.id);
-  } else if (event.type === "customer.subscription.deleted") {
-    await endPlan(env, o.id);
+/* Events are matched to accounts through the Stripe Customer, which each account owns. Metadata is only a fallback. */
+async function userForCustomer(env, customer, fallbackId) {
+  let u = customer ? await env.DB.prepare("SELECT * FROM users WHERE stripe_customer = ?").bind(customer).first() : null;
+  if (!u && fallbackId) {
+    u = await getUserById(env, fallbackId);
+    if (u && customer && !u.stripe_customer) await env.DB.prepare("UPDATE users SET stripe_customer = ? WHERE id = ?").bind(customer, u.id).run();
+  }
+  return u;
+}
+
+async function coinsInSession(env, sessionId) {
+  const items = await stripe(env, "checkout/sessions/" + sessionId + "/line_items", { limit: 10 }, "GET");
+  return items.data.reduce(function (n, li) { const c = CATALOG[li.price && li.price.lookup_key]; return n + (c && c.coins ? c.coins * (li.quantity || 1) : 0); }, 0);
+}
+
+async function fulfillCoins(env, session) {
+  if (session.mode !== "payment" || session.payment_status === "unpaid") return;
+  const user = await userForCustomer(env, session.customer, session.client_reference_id);
+  if (!user) { console.error("no account for checkout", session.id); return; }
+  const coins = await coinsInSession(env, session.id);
+  if (coins > 0) await env.DB.prepare("UPDATE users SET coins = coins + ? WHERE id = ?").bind(coins, user.id).run();
+}
+
+function planFromSubscription(sub) {
+  const item = sub.items && sub.items.data && sub.items.data[0];
+  const c = item && item.price && CATALOG[item.price.lookup_key];
+  return c && c.plan || null;
+}
+
+async function syncSubscription(env, sub) {
+  const user = await userForCustomer(env, sub.customer, sub.metadata && sub.metadata.user_id);
+  if (!user) { console.error("no account for subscription", sub.id); return; }
+  const plan = planFromSubscription(sub);
+  if (["active", "trialing", "past_due"].indexOf(sub.status) > -1 && plan) {
+    await env.DB.prepare("UPDATE users SET plan = ?, stripe_subscription = ?, plan_used = CASE WHEN plan = 'free' THEN 0 ELSE plan_used END WHERE id = ?").bind(plan, sub.id, user.id).run();
+  } else if (["canceled", "unpaid", "incomplete_expired"].indexOf(sub.status) > -1 && user.stripe_subscription === sub.id) {
+    await env.DB.prepare("UPDATE users SET plan = 'free', stripe_subscription = NULL WHERE id = ?").bind(user.id).run();
   }
 }
 
-function endPlan(env, subId) {
-  return env.DB.prepare("UPDATE users SET plan = 'free', stripe_subscription = NULL WHERE stripe_subscription = ?").bind(subId).run();
+/* A refund or dispute on a coin pack takes those coins back. Plan refunds are handled by canceling in the Dashboard, which sends a subscription event. */
+async function reverseCoins(env, paymentIntent, why) {
+  if (!paymentIntent) return;
+  const list = await stripe(env, "checkout/sessions", { payment_intent: paymentIntent, limit: 1 }, "GET");
+  const session = list.data && list.data[0];
+  if (!session || session.mode !== "payment") return;
+  const user = await userForCustomer(env, session.customer, session.client_reference_id);
+  const coins = await coinsInSession(env, session.id);
+  if (user && coins > 0) {
+    await env.DB.prepare("UPDATE users SET coins = MAX(0, coins - ?) WHERE id = ?").bind(coins, user.id).run();
+    console.log("removed", coins, "coins from", user.email, "after", why);
+  }
+}
+
+async function handleEvent(env, event) {
+  const o = event.data && event.data.object || {};
+  switch (event.type) {
+    case "checkout.session.completed":
+    case "checkout.session.async_payment_succeeded":
+      if (o.mode === "payment") await fulfillCoins(env, o);
+      else if (o.mode === "subscription" && o.subscription) await syncSubscription(env, await stripe(env, "subscriptions/" + o.subscription, null, "GET"));
+      break;
+    case "checkout.session.async_payment_failed":
+      console.log("payment failed for checkout", o.id);
+      break;
+    case "customer.subscription.created":
+    case "customer.subscription.updated":
+    case "customer.subscription.deleted":
+      await syncSubscription(env, o);
+      break;
+    case "invoice.paid":
+      if (o.billing_reason === "subscription_cycle") await env.DB.prepare("UPDATE users SET plan_used = 0 WHERE stripe_customer = ?").bind(o.customer).run();
+      break;
+    case "invoice.payment_failed":
+      // Stripe retries the card and emails the customer. The plan stays on until the subscription ends.
+      console.log("invoice payment failed for", o.customer);
+      break;
+    case "charge.refunded":
+      if (o.refunded) await reverseCoins(env, o.payment_intent, "refund");
+      break;
+    case "charge.dispute.created":
+      await reverseCoins(env, o.payment_intent, "dispute");
+      break;
+    case "radar.early_fraud_warning.created":
+      console.log("early fraud warning on charge", o.charge, "review it in the Stripe Dashboard");
+      break;
+  }
 }
 
 async function validSignature(payload, header, secret) {

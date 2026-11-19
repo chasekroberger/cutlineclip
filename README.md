@@ -17,15 +17,21 @@ Worker, Settings, Variables and Secrets. Add each one as a Secret.
 | Name | What it is |
 | --- | --- |
 | `ADMIN_EMAIL` | The email you sign up with. That account sees the Admin page. |
-| `STRIPE_SECRET_KEY` | From Stripe, Developers, API keys. Starts with `sk_`. |
+| `STRIPE_SECRET_KEY` | A Stripe restricted key (starts with `rk_`). Permissions: Customers, Products, Prices, Checkout Sessions and Customer portal set to Write, Subscriptions set to Read. |
 | `STRIPE_WEBHOOK_SECRET` | From the Stripe webhook you create. Starts with `whsec_`. |
 | `RESEND_API_KEY` | Optional. Turns on password reset emails. From resend.com. |
 | `EMAIL_FROM` | Optional. The sender, like `Cutline <support@yourdomain.com>`. |
 
 ## Stripe webhook
 
-Point it at `https://yourdomain.com/api/stripe/webhook` and send these events:
-`checkout.session.completed`, `invoice.paid`, `customer.subscription.updated`, `customer.subscription.deleted`.
+Point it at `https://yourdomain.com/api/stripe/webhook`, use API version `2026-10-28.endive`, and send these events:
+
+- `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`
+- `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`
+- `invoice.paid`, `invoice.payment_failed`
+- `charge.refunded`, `charge.dispute.created`, `radar.early_fraud_warning.created`
+
+Products and prices are created in Stripe automatically the first time someone checks out. Each one has a lookup key like `cutline_pro_monthly`, so don't delete them.
 
 ## Run it locally
 
