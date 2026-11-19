@@ -248,6 +248,9 @@ const CATALOG = {
   cutline_coins_50: { name: "Cutline 50 coins", cents: 1999, coins: 50, pack: "creator" },
   cutline_coins_200: { name: "Cutline 200 coins", cents: 4999, coins: 200, pack: "studio" }
 };
+// Managed Payments makes Stripe the merchant of record, so it handles sales tax, VAT and GST, fraud and disputes.
+// Every product needs a tax code that's eligible for it. This one is SaaS for business use.
+const TAX_CODE = "txcd_10103001";
 const PLAN_KEYS = { solo: "cutline_solo_monthly", pro: "cutline_pro_monthly" };
 const PACK_KEYS = { starter: "cutline_coins_10", creator: "cutline_coins_50", studio: "cutline_coins_200" };
 const priceCache = {};
@@ -272,7 +275,7 @@ async function priceFor(env, key) {
   let price = found.data && found.data[0];
   if (!price || price.unit_amount !== item.cents) {
     // No price with this lookup key yet, or its amount is out of date. Reuse its product if there is one.
-    const productId = price ? price.product : (await stripe(env, "products", { name: item.name, metadata: { cutline_key: key } })).id;
+    const productId = price ? price.product : (await stripe(env, "products", { name: item.name, tax_code: TAX_CODE, metadata: { cutline_key: key } })).id;
     price = await stripe(env, "prices", Object.assign({ product: productId, currency: "usd", unit_amount: item.cents, lookup_key: key, transfer_lookup_key: "true" }, item.recurring ? { recurring: { interval: "month" } } : {}));
   }
   priceCache[key] = price.id;
@@ -297,7 +300,7 @@ async function planCheckout(env, user, body, url) {
   try {
     const s = await stripe(env, "checkout/sessions", {
       mode: "subscription", customer: await customerFor(env, user), client_reference_id: user.id, allow_promotion_codes: "true",
-      integration_identifier: integrationId(),
+      integration_identifier: integrationId(), managed_payments: { enabled: "true" },
       success_url: url.origin + "/?plan=success", cancel_url: url.origin + "/?plan=canceled",
       line_items: [{ price: await priceFor(env, key), quantity: 1 }],
       metadata: { user_id: user.id }, subscription_data: { metadata: { user_id: user.id } }
@@ -313,7 +316,7 @@ async function coinCheckout(env, user, body, url) {
   try {
     const s = await stripe(env, "checkout/sessions", {
       mode: "payment", customer: await customerFor(env, user), client_reference_id: user.id,
-      integration_identifier: integrationId(),
+      integration_identifier: integrationId(), managed_payments: { enabled: "true" },
       success_url: url.origin + "/?coins=success", cancel_url: url.origin + "/?coins=canceled",
       line_items: [{ price: await priceFor(env, key), quantity: 1 }],
       metadata: { user_id: user.id }

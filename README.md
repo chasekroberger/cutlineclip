@@ -31,6 +31,8 @@ Point it at `https://yourdomain.com/api/stripe/webhook`, use API version `2026-1
 - `invoice.paid`, `invoice.payment_failed`
 - `charge.refunded`, `charge.dispute.created`, `radar.early_fraud_warning.created`
 
+Checkout uses Stripe Managed Payments, so Stripe is the merchant of record and handles sales tax, VAT and GST. Turn it on in the Stripe Dashboard under Settings, Managed Payments. Every product needs an eligible tax code (Cutline uses `txcd_10103001`).
+
 Products and prices are created in Stripe automatically the first time someone checks out. Each one has a lookup key like `cutline_pro_monthly`, so don't delete them.
 
 ## Run it locally
