@@ -207,7 +207,7 @@ async function bump(env, sql, id, n) {
 
 /* ---------- Admin ---------- */
 async function adminList(env) {
-  const { results } = await env.DB.prepare("SELECT id, email, plan, free_used, plan_used, coins, created_at, last_login FROM users ORDER BY created_at DESC LIMIT 5000").all();
+  const { results } = await env.DB.prepare("SELECT id, email, plan, free_used, plan_used, coins, is_admin, created_at, last_login FROM users ORDER BY created_at DESC LIMIT 5000").all();
   return json({ ok: true, users: results.map(function (u) {
     return { id: u.id, email: u.email, plan: u.plan, role: isAdmin(u, env) ? "admin" : "user", clipsUsed: u.plan === "free" ? u.free_used : u.plan_used, coins: u.coins, createdAt: u.created_at, lastLogin: u.last_login };
   }) });
@@ -451,7 +451,7 @@ function json(data, status, headers) {
 }
 async function readJson(request) { try { const d = await request.json(); return d && typeof d === "object" ? d : {}; } catch (e) { return {}; } }
 function cleanEmail(v) { const e = String(v || "").trim().toLowerCase(); return e.length <= 254 && EMAIL_RE.test(e) ? e : ""; }
-function isAdmin(user, env) { return Boolean(env.ADMIN_EMAIL && user && user.email === String(env.ADMIN_EMAIL).trim().toLowerCase()); }
+function isAdmin(user, env) { return Boolean(user && (user.is_admin === 1 || (env.ADMIN_EMAIL && user.email === String(env.ADMIN_EMAIL).trim().toLowerCase()))); }
 function publicUser(u, env) {
   const admin = isAdmin(u, env), paid = u.plan !== "free";
   return { email: u.email, plan: u.plan, role: admin ? "admin" : "user", clipsUsed: paid ? u.plan_used : u.free_used, clipLimit: admin ? null : (PLAN_LIMITS[u.plan] || 5), coins: u.coins };
