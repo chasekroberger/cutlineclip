@@ -271,6 +271,11 @@ details p { margin-top: 8px; color: var(--dim); max-width: 60ch; }
 .row-acts { display: flex; gap: 8px; }
 .row-acts button { min-height: 36px; padding: 4px 11px; border-radius: 9px; border: 1px solid var(--stroke); background: rgba(255,255,255,.07); font-size: 14px; font-weight: 600; white-space: nowrap; }
 .row-acts button.danger { color: #ff8fbd; }
+.coin-step { display: inline-flex; align-items: center; gap: 8px; }
+.coin-step b { min-width: 2.2ch; text-align: center; font-variant-numeric: tabular-nums; }
+.coin-step button { width: 30px; height: 30px; padding: 0; border-radius: 8px; border: 1px solid var(--stroke); background: rgba(255,255,255,.07); font-size: 11px; line-height: 1; }
+.coin-step button:hover:not(:disabled) { border-color: var(--pink); color: var(--pink); }
+.coin-step button:disabled { opacity: .35; cursor: not-allowed; }
 .row-acts button.armed { background: var(--pink); border-color: var(--pink); color: #fff; }
 .you { color: var(--cyan); font-weight: 650; }
 @media (max-width: 620px) { .admin-stats { grid-template-columns: minmax(0, 1fr); } }
@@ -1223,7 +1228,7 @@ window.CutlineAdminStart = function () {
     act: async function (name, body) { var d = await Auth.post("/api/admin/users/" + name, body); if (!d.ok) throw new Error(d.message); }
   } : {
     list: async function () { var all = Auth.previewAccounts(); return Object.keys(all).map(function (e) { return { id: e, email: e, plan: all[e].plan || "free", role: e === Auth.previewAdminEmail ? "admin" : "user", clipsUsed: all[e].used || 0, coins: all[e].coins || 0, createdAt: all[e].created || "" }; }); },
-    act: async function (name, body) { var all = Auth.previewAccounts(); if (name === "plan") all[body.id].plan = body.plan; if (name === "reset") all[body.id].used = 0; if (name === "coins") all[body.id].coins = (all[body.id].coins || 0) + body.amount; if (name === "delete") delete all[body.id]; Auth.savePreviewAccounts(all); }
+    act: async function (name, body) { var all = Auth.previewAccounts(); if (name === "plan") all[body.id].plan = body.plan; if (name === "reset") all[body.id].used = 0; if (name === "coins") all[body.id].coins = Math.max(0, (all[body.id].coins || 0) + body.amount); if (name === "delete") delete all[body.id]; Auth.savePreviewAccounts(all); }
   };
   async function run(name, body, done) { try { await store.act(name, body); say(done); await load(); } catch (e) { say(e.message || "That change didn't save. Try again."); } }
   function btn(label, cls, fn) { var b = document.createElement("button"); b.type = "button"; b.textContent = label; if (cls) b.className = cls; b.addEventListener("click", fn); return b; }
@@ -1239,7 +1244,18 @@ window.CutlineAdminStart = function () {
       if (admin) { planCell.className = "you"; planCell.textContent = "Admin"; }
       else { var sel = document.createElement("select"); sel.setAttribute("aria-label", "Plan for " + u.email); [["free", "Free"], ["solo", "Solo"], ["pro", "Pro"]].forEach(function (p) { var o = new Option(p[1], p[0]); o.selected = u.plan === p[0]; sel.add(o); }); sel.addEventListener("change", function () { run("plan", { id: u.id, plan: sel.value }, u.email + " is now on " + sel.options[sel.selectedIndex].text + "."); }); planCell.appendChild(sel); }
       tr.insertCell().textContent = admin ? u.clipsUsed + " (unlimited)" : u.clipsUsed;
-      tr.insertCell().textContent = admin ? "Not needed" : (u.coins || 0);
+      var coinCell = tr.insertCell();
+      if (admin) coinCell.textContent = "Not needed";
+      else {
+        /* Up and down arrows change coins by 1. Hold Shift to change by 10. */
+        var step = document.createElement("div"), n = document.createElement("b"), coinsNow = u.coins || 0;
+        step.className = "coin-step"; n.textContent = coinsNow; n.setAttribute("aria-live", "polite");
+        var down = btn("\u25BC", "", function (e) { var amt = e.shiftKey ? 10 : 1; if (coinsNow <= 0) return; run("coins", { id: u.id, amount: -Math.min(amt, coinsNow) }, "Took " + Math.min(amt, coinsNow) + (Math.min(amt, coinsNow) === 1 ? " coin" : " coins") + " from " + u.email + "."); });
+        var up = btn("\u25B2", "", function (e) { var amt = e.shiftKey ? 10 : 1; run("coins", { id: u.id, amount: amt }, "Gave " + amt + (amt === 1 ? " coin" : " coins") + " to " + u.email + "."); });
+        down.setAttribute("aria-label", "Remove a coin from " + u.email); up.setAttribute("aria-label", "Add a coin for " + u.email);
+        down.title = "Remove 1 coin (Shift for 10)"; up.title = "Add 1 coin (Shift for 10)"; down.disabled = coinsNow <= 0;
+        step.append(down, n, up); coinCell.appendChild(step);
+      }
       tr.insertCell().textContent = Auth.mode !== "server" ? "" : u.stripe ? "Linked" : "Not yet";
       tr.insertCell().textContent = u.createdAt ? new Date(u.createdAt).toLocaleDateString() : "";
       var acts = tr.insertCell(), wrap = document.createElement("div"); wrap.className = "row-acts"; acts.appendChild(wrap);
