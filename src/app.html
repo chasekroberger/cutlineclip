@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Cutline Clipping App</title>
-<meta name="description" content="Turn long streams and videos into vertical clips with captions, cut out the slow parts, and queue them for YouTube, Instagram, and TikTok. Your first 5 clips are free.">
+<meta name="description" content="Turn long streams and videos into vertical clips with captions, cut out the slow parts, ready for YouTube, Instagram, and TikTok. Your first 5 clips are free.">
 <link rel="canonical" href="https://cutlineclip.com/">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -13,7 +13,7 @@
 <meta property="og:site_name" content="Cutline">
 <meta property="og:url" content="https://cutlineclip.com/">
 <meta property="og:title" content="Cutline: streams in, clips out">
-<meta property="og:description" content="Turn long videos into vertical clips with captions and queue them for YouTube, Instagram, and TikTok. Your first 5 clips are free.">
+<meta property="og:description" content="Turn long videos into vertical clips with captions ready for YouTube, Instagram, and TikTok. Your first 5 clips are free.">
 <meta property="og:image" content="https://cutlineclip.com/og.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -303,6 +303,18 @@ details p { margin-top: 8px; color: var(--dim); max-width: 60ch; }
 .post-note:empty { display: none; }
 .post-note { margin-top: 8px; }
 #postBtn { margin-top: 8px; width: 100%; }
+/* Auto upload is switched off until YouTube, Instagram, and TikTok approve Cutline. */
+body.no-autoupload #postBtn { display: none !important; }
+.soon-card { display: grid; gap: 10px; align-content: start; }
+.soon-card h3 { font-size: 20px; }
+.soon-card p { color: var(--dim); font-size: 15px; line-height: 1.45; }
+.soon-pill { justify-self: start; display: inline-flex; align-items: center; gap: 6px; padding: 4px 11px; border-radius: 999px; font-size: 12.5px; font-weight: 750; letter-spacing: .04em; text-transform: uppercase; color: #fff; background: linear-gradient(100deg, #ff2e88, #8a5cff); }
+.soon-pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #fff; animation: soonpulse 1.6s ease-in-out infinite; }
+@keyframes soonpulse { 50% { opacity: .3; } }
+@media (prefers-reduced-motion: reduce) { .soon-pill::before { animation: none; } }
+.soon-apps { display: flex; flex-wrap: wrap; gap: 6px; }
+.soon-apps b { padding: 6px 11px; border-radius: 10px; border: 1px dashed rgba(255,255,255,.25); font-size: 14px; font-weight: 600; opacity: .8; }
+.feat .soon-pill, .steps .soon-pill { font-size: 11px; padding: 3px 9px; vertical-align: 3px; margin-left: 6px; }
 .notice { margin-top: 16px; padding-block: 12px; border-radius: 14px; background: rgba(39,232,242,.12); border: 1px solid rgba(39,232,242,.35); font-weight: 600; width: min(calc(100% - 2 * var(--gutter)), 1304px); }
 .notice.bad { background: rgba(255,46,136,.14); border-color: rgba(255,46,136,.45); }
 .coins-strip { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 14px 30px; align-items: center; margin-top: 18px; padding: 22px 26px; border-radius: 26px; border: 1px solid var(--stroke); background: rgba(255,255,255,.045); }
@@ -819,12 +831,21 @@ html:not(.signed-in) .member-only { display: none !important; }
         <div class="bar" id="bar" hidden><i id="barFill"></i></div>
       </div>
       <div class="queue box" id="queueBox">
+        <div class="soon-card">
+          <span class="soon-pill">Coming soon</span>
+          <h3>Auto upload</h3>
+          <p>Post clips straight to YouTube Shorts, Instagram Reels, and TikTok, on a schedule you pick.</p>
+          <div class="soon-apps"><b>YouTube</b><b>Instagram</b><b>TikTok</b></div>
+          <p class="note">For now, export your clip, select Save clip, and upload it to any app yourself.</p>
+        </div>
+        <div id="uploadTools" hidden>
         <div class="queue-head" id="accounts"><h3>Auto upload</h3><span class="queue-count" id="acctCount"></span></div>
         <ul class="accts" id="accts"></ul>
         <div class="gap-row"><label for="queueGap">Space new uploads</label><select id="queueGap"><option value="0">Right away</option><option value="15">15 minutes apart</option><option value="30">30 minutes apart</option><option value="60">1 hour apart</option><option value="180">3 hours apart</option></select></div>
         <div class="q-head" id="qHead" hidden><b>Upload queue</b><button class="mini" id="lineUp" type="button">Line up back to back</button></div>
         <ol class="queue-list" id="queueList"></ol>
         <ol class="posts" id="postList"></ol>
+        </div>
       </div>
     </div>
 
@@ -857,15 +878,15 @@ html:not(.signed-in) .member-only { display: none !important; }
     </div>
   </div>
 </section>
-<div class="vibe-tick" aria-hidden="true"><div><span>Auto upload</span><span>✦</span><span>Captions</span><span>✦</span><span>Cut the boring parts</span><span>✦</span><span>Vertical in one click</span><span>✦</span><span>YouTube</span><span>✦</span><span>Instagram</span><span>✦</span><span>TikTok</span><span>✦</span><span>5 free clips</span><span>✦</span><span>Auto upload</span><span>✦</span><span>Captions</span><span>✦</span><span>Cut the boring parts</span><span>✦</span><span>Vertical in one click</span><span>✦</span><span>YouTube</span><span>✦</span><span>Instagram</span><span>✦</span><span>TikTok</span><span>✦</span><span>5 free clips</span><span>✦</span></div></div>
+<div class="vibe-tick" aria-hidden="true"><div><span>Auto upload coming soon</span><span>✦</span><span>Captions</span><span>✦</span><span>Cut the boring parts</span><span>✦</span><span>Vertical in one click</span><span>✦</span><span>YouTube</span><span>✦</span><span>Instagram</span><span>✦</span><span>TikTok</span><span>✦</span><span>5 free clips</span><span>✦</span><span>Auto upload coming soon</span><span>✦</span><span>Captions</span><span>✦</span><span>Cut the boring parts</span><span>✦</span><span>Vertical in one click</span><span>✦</span><span>YouTube</span><span>✦</span><span>Instagram</span><span>✦</span><span>TikTok</span><span>✦</span><span>5 free clips</span><span>✦</span></div></div>
 </div>
-<div class="platforms"><div><span>Post to</span><b>YouTube Shorts</b><b>Instagram Reels</b><b>TikTok</b><span>Built for paid clipping campaigns</span></div></div>
+<div class="platforms"><div><span>Made for</span><b>YouTube Shorts</b><b>Instagram Reels</b><b>TikTok</b><span>Built for paid clipping campaigns</span></div></div>
 <section id="how" class="wrap">
   <div class="sec-head"><span class="eyebrow">How it works</span><h2>Three steps. That's it.</h2></div>
   <ol class="steps">
     <li><span class="num">1</span><h3>Drop your video</h3><p>Upload any stream or video you can use. We mark the hype moments for you.</p><div class="vis mini-wave" id="howWave" aria-hidden="true"></div></li>
     <li><span class="num">2</span><h3>Cut the good part</h3><p>Trim it, cut the boring bits, add a caption. Takes about a minute.</p><div class="vis mini-cut" aria-hidden="true"><span class="sel" style="flex: 3"></span><span class="cut" style="flex: 2">Cut</span><span style="flex: 4"></span></div></li>
-    <li><span class="num">3</span><h3>Post it everywhere</h3><p>Pick YouTube, Instagram, or TikTok. Pick a time. Done.</p><div class="vis mini-q" aria-hidden="true"><div><span>YouTube, Instagram</span><b>Today, 6:00 PM</b></div><div><span>TikTok</span><b>Today, 7:00 PM</b></div></div></li>
+    <li><span class="num">3</span><h3>Save and post</h3><p>Save your clip and post it to YouTube, Instagram, or TikTok. Auto upload is coming soon.</p><div class="vis mini-q" aria-hidden="true"><div><span>cutline-clip.mp4</span><b>Saved</b></div><div><span>Auto upload</span><b>Coming soon</b></div></div></li>
   </ol>
 </section>
 
@@ -892,7 +913,7 @@ html:not(.signed-in) .member-only { display: none !important; }
       <article class="feat"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4l12 16M18 4L6 20M4 9h4M16 15h4"/></svg></span><h3>Split and cut</h3><p>Cut out the slow parts. The clip plays back to back.</p></article>
       <article class="feat"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3h8a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM10 18h4"/></svg></span><h3>Vertical reframing</h3><p>Wide video to 9:16. Slide the frame to keep the action centered.</p></article>
       <article class="feat"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h10M4 18h7"/></svg></span><h3>Burned-in captions</h3><p>Pick Bold, Neon, or Box. They show up on every app.</p></article>
-      <article class="feat"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></svg></span><h3>Auto upload</h3><p>Connect your accounts once, then post from Cutline. TikTok asks you to confirm each post.</p></article>
+      <article class="feat"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></svg></span><h3>Auto upload <span class="soon-pill">Coming soon</span></h3><p>Soon you'll connect your accounts once and post right from Cutline. For now, save your clip and upload it yourself.</p></article>
       <article class="feat"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18M17 7.5c0-1.9-2.2-3.5-5-3.5s-5 1.6-5 3.5S9 11 12 11.5s5 1.6 5 3.5-2.2 3.5-5 3.5-5-1.6-5-3.5"/></svg></span><h3>Earnings estimate</h3><p>Plug in your views and rate. See what a month could pay.</p></article>
     </div>
   </section>
@@ -914,7 +935,7 @@ html:not(.signed-in) .member-only { display: none !important; }
     <div class="sec-head"><span class="eyebrow">Pricing</span><h2>Start free. Pay when it pays off.</h2><p>Every account gets 5 free clips. Cancel a plan any time.</p></div>
     <div class="plans">
       <div class="plan"><h3>Free</h3><p class="sub">Try Cutline on your own videos</p><div class="price">$0</div><a class="btn btn-ghost" href="#studio">Make 5 clips free</a><ul><li>5 finished clips</li><li>Captions, cuts, and vertical reframing</li><li>No card needed</li></ul></div>
-      <div class="plan main"><span class="badge">Recommended</span><h3>Solo</h3><p class="sub">For one clipper posting every day</p><div class="price">$19.99 <small>per month</small></div><button class="btn btn-flare" type="button" data-plan="solo">Choose Solo</button><ul><li>100 clips a month</li><li>Captions, cuts, and vertical reframing</li><li>Auto upload to YouTube, Instagram, and TikTok</li></ul></div>
+      <div class="plan main"><span class="badge">Recommended</span><h3>Solo</h3><p class="sub">For one clipper posting every day</p><div class="price">$19.99 <small>per month</small></div><button class="btn btn-flare" type="button" data-plan="solo">Choose Solo</button><ul><li>100 clips a month</li><li>Captions, cuts, and vertical reframing</li><li>Auto upload to YouTube, Instagram, and TikTok when it launches</li></ul></div>
       <div class="plan"><h3>Pro</h3><p class="sub">For full-time clippers and small teams</p><div class="price">$49.99 <small>per month</small></div><button class="btn btn-white" type="button" data-plan="pro">Choose Pro</button><ul><li>500 clips a month</li><li>Everything in Solo</li><li>Room for several campaigns at once</li></ul></div>
     </div>
     <p class="plan-status" id="planStatus" role="status"></p>
@@ -932,12 +953,10 @@ html:not(.signed-in) .member-only { display: none !important; }
   <section id="faq" class="wrap faq-grid">
     <div><span class="eyebrow">FAQ</span><h2>Quick answers</h2><p>Still stuck? Email <a href="mailto:support@cutlineclip.com">support@cutlineclip.com</a>.</p></div>
     <div class="faq-list">
-      <details open><summary>How does auto upload work?</summary><p>Connect your YouTube, Instagram, or TikTok account. Every clip you export uploads to YouTube and Instagram automatically. TikTok requires you to review and confirm each post, so it takes one tap.</p></details>
-      <details><summary>Which Instagram accounts work?</summary><p>Instagram only lets apps post to Business or Creator accounts. You can switch for free in the Instagram app under Settings, Account type and tools.</p></details>
+      <details open><summary>When is auto upload coming?</summary><p>Soon. We're getting approval from YouTube, Instagram, and TikTok to post for you. Until then, export your clip, select Save clip, and upload it to any app yourself.</p></details>
       <details><summary>What happens after my 5 free clips?</summary><p>Buy coins to make more clips, 1 coin per clip, or choose a monthly plan.</p></details>
       <details><summary>Can I paste a YouTube or Twitch link?</summary><p>Yes. Select Add link and paste it. Direct video links load right away, and YouTube, Twitch, and similar links import through your Cutline account. Only use videos you own, have permission to use, or received through a campaign that allows clipping.</p></details>
       <details><summary>Which browsers work best?</summary><p>Use the latest Chrome or Edge on a computer. Keep the tab open while your clip exports, because it takes as long as the clip plays.</p></details>
-      <details><summary>What does Cutline do with my connected accounts?</summary><p>Cutline only posts the clips you choose to post. It never posts anything else or changes your profile. You can disconnect an account any time, and remove Cutline's access in your Google, Meta, or TikTok security settings. See our <a href="privacy.html">Privacy Policy</a> for details.</p></details>
       <details><summary>Does Cutline guarantee views or payouts?</summary><p>No. Views depend on your clips and TikTok's recommendations, and each campaign decides which views it pays for.</p></details>
     </div>
   </section>
@@ -1299,6 +1318,10 @@ window.CutlineAdminStart = function () {
 <script>
 (function () {
   "use strict";
+  /* Auto upload stays off until YouTube, Instagram, and TikTok approve Cutline. Set this to true to turn it back on. */
+  var AUTO_UPLOAD = false;
+  document.body.classList.toggle("no-autoupload", !AUTO_UPLOAD);
+  if (AUTO_UPLOAD) { document.getElementById("uploadTools").hidden = false; document.querySelector("#queueBox .soon-card").hidden = true; }
   /* Paste your Stripe payment links here to turn on checkout. */
   var CHECKOUT = { solo: "", pro: "" };
   var Auth = window.CutlineAuth;
@@ -1808,6 +1831,7 @@ window.CutlineAdminStart = function () {
   function mini(label, cls, fn) { var b = document.createElement("button"); b.type = "button"; b.className = "mini" + (cls ? " " + cls : ""); b.textContent = label; b.addEventListener("click", fn); return b; }
   function connected(p) { return conns.some(function (c) { return c.platform === p && c.connected; }); }
   async function loadConnections() {
+    if (!AUTO_UPLOAD) return;
     if (Auth.mode !== "server") { conns = ["youtube", "instagram", "tiktok"].map(function (p) { return { platform: p, name: NAMES[p], preview: true, accountName: "Preview account" }; }); var q = QS.init(); posts = q.posts; queueGap = q.queueGap; $("queueGap").value = String(queueGap); renderAccts(); renderPosts(); return; }
     var d = await Auth.get("/api/connections");
     if (d.ok) { conns = d.connections; posts = d.posts; queueGap = d.queueGap || 0; $("queueGap").value = String(queueGap); renderAccts(); renderPosts(); }
@@ -1903,6 +1927,7 @@ window.CutlineAdminStart = function () {
   }
   async function refreshPosts() { var d = await QS.refresh(); applyPosts(d); }
   async function afterExport() {
+    if (!AUTO_UPLOAD) return;
     if (!lastClip) return;
     if (Auth.mode !== "server") { lastClip.uploaded = true; $("postBtn").hidden = false; $("postNote").textContent = "Preview: add this clip to your upload queue to try picking when it posts."; return; }
     var clip = lastClip, anyConnected = conns.some(function (c) { return c.connected; });
