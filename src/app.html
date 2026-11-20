@@ -802,7 +802,7 @@ html:not(.signed-in) .member-only { display: none !important; }
           <button class="tool" id="linkToggle" type="button" aria-expanded="false" aria-controls="linkRow">Add link</button>
           <button class="tool" id="playBtn" type="button">Pause</button>
         </div>
-        <form class="link-row" id="linkRow" hidden novalidate><input id="linkInput" type="url" inputmode="url" placeholder="Paste a YouTube, Twitch, or video link" aria-label="Video link"><button class="tool" type="submit">Load</button></form>
+        <form class="link-row" id="linkRow" hidden novalidate><input id="linkInput" type="url" inputmode="url" placeholder="Paste a YouTube, Twitch, Vimeo, Drive, or Dropbox link" aria-label="Video link"><button class="tool" type="submit">Load</button></form>
       </div>
       <div><label class="lbl" for="caption">Caption</label><input id="caption" maxlength="70" value="When the squad finally clutches"></div>
       <div>
@@ -955,7 +955,7 @@ html:not(.signed-in) .member-only { display: none !important; }
     <div class="faq-list">
       <details open><summary>When is auto upload coming?</summary><p>Soon. We're getting approval from YouTube, Instagram, and TikTok to post for you. Until then, export your clip, select Save clip, and upload it to any app yourself.</p></details>
       <details><summary>What happens after my 5 free clips?</summary><p>Buy coins to make more clips, 1 coin per clip, or choose a monthly plan.</p></details>
-      <details><summary>Can I paste a YouTube or Twitch link?</summary><p>Yes. Select Add link and paste it. Direct video links load right away, and YouTube, Twitch, and similar links import through your Cutline account. Only use videos you own, have permission to use, or received through a campaign that allows clipping.</p></details>
+      <details><summary>Can I paste a YouTube or Twitch link?</summary><p>Yes. Select Add link and paste a YouTube, Twitch, or Vimeo link to watch it and mark your cuts right in Cutline. Those sites don't let other apps save their videos, so to export a finished clip, upload the file or paste a Google Drive or Dropbox link. Drive and Dropbox links open and export just like an upload. Only use videos you own, have permission to use, or received through a campaign that allows clipping.</p></details>
       <details><summary>Which browsers work best?</summary><p>Use the latest Chrome or Edge on a computer. Keep the tab open while your clip exports, because it takes as long as the clip plays.</p></details>
       <details><summary>Does Cutline guarantee views or payouts?</summary><p>No. Views depend on your clips and TikTok's recommendations, and each campaign decides which views it pays for.</p></details>
     </div>
@@ -1514,8 +1514,8 @@ window.CutlineAdminStart = function () {
     [["hIn", S.a], ["hOut", S.b]].forEach(function (x) { var h = $(x[0]); h.setAttribute("aria-valuemax", Math.round(S.dur)); h.setAttribute("aria-valuenow", Math.round(x[1])); h.setAttribute("aria-valuetext", fmt(x[1])); });
     renderWave(); renderPreview(); renderEditor(); renderEditStatus();
   }
-  function seek(t) { S.t = clamp(t, 0, S.dur); if (S.mode === "video") { try { video.currentTime = S.t; } catch (e) {} } else if (S.mode === "embed") { ytCmd("seekTo", [S.t, true]); yt.t = S.t; yt.at = performance.now(); } }
-  function setPlaying(on) { S.playing = on; $("playBtn").textContent = on ? "Pause" : "Play"; if (S.mode === "embed") { yt.t = ytTime(); yt.at = performance.now(); yt.playing = on; ytCmd(on ? "playVideo" : "pauseVideo"); } else if (S.mode === "video") { if (on) { var p = video.play(); if (p) p.catch(function () { setPlaying(false); }); } else video.pause(); } }
+  function seek(t) { S.t = clamp(t, 0, S.dur); if (S.mode === "video") { try { video.currentTime = S.t; } catch (e) {} } else if (S.mode === "embed") { embedCmd("seek", S.t); yt.t = S.t; yt.at = performance.now(); } }
+  function setPlaying(on) { S.playing = on; $("playBtn").textContent = on ? "Pause" : "Play"; if (S.mode === "embed") { yt.t = ytTime(); yt.at = performance.now(); yt.playing = on; embedCmd(on ? "play" : "pause"); } else if (S.mode === "video") { if (on) { var p = video.play(); if (p) p.catch(function () { setPlaying(false); }); } else video.pause(); } }
   video.addEventListener("seeked", renderPreview); video.addEventListener("loadeddata", renderPreview);
 
   function frame(now) {
@@ -1585,8 +1585,11 @@ window.CutlineAdminStart = function () {
     if (file.type && file.type.indexOf("video/") !== 0) { status("That file isn't a video. Choose an MP4, MOV, or WebM file."); return; }
     setupVideo(file.name, URL.createObjectURL(file), false, function () { scanAudio(file); });
   }
-  /* Links: direct video links load right here. YouTube, Twitch, and similar pages import through the Cutline server. */
-  var PLATFORM_HOSTS = /(^|\.)(youtube\.com|youtu\.be|twitch\.tv|kick\.com|tiktok\.com|instagram\.com|x\.com|twitter\.com|facebook\.com|vimeo\.com|rumble\.com)$/;
+  /* Links. YouTube, Vimeo, and Twitch videos play in their own players so you can cut them here.
+     Google Drive and Dropbox files open through the Cutline server and export like an upload.
+     Direct links to a video file load right away when the site hosting them allows it. */
+  var PLATFORM_HOSTS = /(^|\.)(kick\.com|tiktok\.com|instagram\.com|x\.com|twitter\.com|facebook\.com|rumble\.com)$/;
+  var SHARE_HOSTS = /^(drive\.google\.com|docs\.google\.com|(www\.)?dropbox\.com|dl\.dropboxusercontent\.com)$/;
   async function scanLink(src) {
     try {
       var r = await fetch(src); if (!r.ok) throw new Error();
@@ -1598,82 +1601,150 @@ window.CutlineAdminStart = function () {
     if (S.exporting) return;
     var u; try { u = new URL(raw.trim()); } catch (e) { u = null; }
     if (!u || !/^https?:$/.test(u.protocol)) { status("That doesn't look like a link. Paste the full address, starting with https://."); $("linkInput").focus(); return; }
-    var host = u.hostname.toLowerCase(), ytId = youTubeId(u);
-    if (ytId) { loadYouTube(ytId, startSeconds(u), u.href); return; }
-    if (PLATFORM_HOSTS.test(host)) {
-      if (Auth.mode !== "server") { status("Twitch and similar links import through the Cutline server once your site is live. YouTube links and direct video links work right now."); return; }
-      status("Importing your video. Longer videos can take a minute...");
-      var d = await Auth.post("/api/import", { url: u.href });
-      if (!d.ok) { status(d.message || "That video couldn't be imported. Check the link and try again."); return; }
-      setupVideo(d.title || "your video", d.videoUrl, true, function () { scanLink(d.videoUrl); });
-      return;
-    }
+    var host = u.hostname.toLowerCase(), id;
+    if ((id = youTubeId(u))) { loadEmbed("youtube", id, startSeconds(u), u.href); return; }
+    if ((id = vimeoId(u))) { loadEmbed("vimeo", id, startSeconds(u), u.href); return; }
+    if ((id = twitchVodId(u))) { loadEmbed("twitch", id, startSeconds(u), u.href); return; }
+    if (/(^|\.)twitch\.tv$/.test(host)) { status("Paste a Twitch video link, the kind with /videos/ in it. Twitch clips and live channels can't be cut here yet."); return; }
+    if (SHARE_HOSTS.test(host)) { loadShared(u); return; }
+    if (PLATFORM_HOSTS.test(host)) { status("Links from that site can't be opened yet. Try YouTube, Twitch, Vimeo, Google Drive, Dropbox, or upload the file."); return; }
     setupVideo(decodeURIComponent(u.pathname.split("/").pop() || "") || "your link", u.href, true, function () { scanLink(u.href); });
   }
-  /* YouTube links play in YouTube's own player inside the phone frame, controlled from the timeline and editor. */
-  var yt = { frame: null, ready: false, t: 0, at: 0, playing: false, href: "", start: 0, timer: null };
-  function ytCmd(func, args) { if (yt.frame && yt.frame.contentWindow) yt.frame.contentWindow.postMessage(JSON.stringify({ event: "command", func: func, args: args || [], id: "cutline", channel: "widget" }), "*"); }
-  function ytListen() { if (yt.frame && yt.frame.contentWindow) yt.frame.contentWindow.postMessage(JSON.stringify({ event: "listening", id: "cutline", channel: "widget" }), "*"); }
-  function ytTime() { return yt.t + (yt.playing ? (performance.now() - yt.at) / 1000 : 0); }
+  /* Shared files from Google Drive and Dropbox stream through the Cutline server, so they export like an upload. */
+  async function loadShared(u) {
+    if (Auth.mode !== "server") { status("Google Drive and Dropbox links open once your site is live."); return; }
+    if (!Auth.user()) { status("Create a free account or log in to open Google Drive and Dropbox links."); return; }
+    var src = "/api/import/file?url=" + encodeURIComponent(u.href);
+    status("Opening your shared file...");
+    try {
+      var r = await fetch(src, { headers: { Range: "bytes=0-1" }, credentials: "same-origin" });
+      if (!r.ok) { var d = {}; try { d = await r.json(); } catch (e) {} status(d.message || "That file couldn't be opened. Check that the link is shared with anyone who has it."); return; }
+      try { r.body && r.body.cancel(); } catch (e) {}
+    } catch (e) { status("Couldn't reach Cutline. Check your connection and try again."); return; }
+    setupVideo(/dropbox/.test(u.hostname) ? "your Dropbox file" : "your Google Drive file", src, true, function () { scanLink(src); });
+  }
+
+  /* YouTube, Vimeo, and Twitch videos play in their own players inside the phone frame, controlled from the timeline and editor. */
+  var NAMES_EMBED = { youtube: "YouTube", vimeo: "Vimeo", twitch: "Twitch" };
+  var yt = { kind: "", frame: null, player: null, ready: false, t: 0, at: 0, playing: false, href: "", start: 0, timer: null };
+  function post2(msg, origin) { if (yt.frame && yt.frame.contentWindow) yt.frame.contentWindow.postMessage(typeof msg === "string" ? msg : JSON.stringify(msg), origin); }
+  function ytCmd(func, args) { post2({ event: "command", func: func, args: args || [], id: "cutline", channel: "widget" }, "*"); }
+  function ytListen() { post2({ event: "listening", id: "cutline", channel: "widget" }, "*"); }
+  function vimeoCmd(method, value) { post2(value === undefined ? { method: method } : { method: method, value: value }, "https://player.vimeo.com"); }
+  function embedCmd(action, t) {
+    if (yt.kind === "youtube") ytCmd(action === "seek" ? "seekTo" : action === "play" ? "playVideo" : "pauseVideo", action === "seek" ? [t, true] : []);
+    else if (yt.kind === "vimeo") vimeoCmd(action === "seek" ? "setCurrentTime" : action, action === "seek" ? t : undefined);
+    else if (yt.kind === "twitch" && yt.player) { try { if (action === "seek") yt.player.seek(t); else if (action === "play") yt.player.play(); else yt.player.pause(); } catch (e) {} }
+  }
+  function ytTime() {
+    if (yt.kind === "twitch" && yt.player) { try { return yt.player.getCurrentTime(); } catch (e) {} }
+    return yt.t + (yt.playing ? (performance.now() - yt.at) / 1000 : 0);
+  }
   function youTubeId(u) {
     var host = u.hostname.toLowerCase().replace(/^(www\.|m\.|music\.)/, ""), id = "", m;
     if (host === "youtu.be") id = u.pathname.split("/")[1] || "";
     else if (host === "youtube.com" || host === "youtube-nocookie.com") { id = u.searchParams.get("v") || ""; if (!id && (m = u.pathname.match(/^\/(shorts|live|embed)\/([\w-]{11})/))) id = m[2]; }
     return /^[\w-]{11}$/.test(id) ? id : "";
   }
+  function vimeoId(u) {
+    var host = u.hostname.toLowerCase().replace(/^www\./, ""), m;
+    if (host === "vimeo.com" && (m = u.pathname.match(/^\/(?:channels\/[\w-]+\/|groups\/[\w-]+\/videos\/)?(\d{5,})(?:\/([0-9a-f]{6,}))?/))) return m[1] + (m[2] ? "?h=" + m[2] : "");
+    if (host === "player.vimeo.com" && (m = u.pathname.match(/^\/video\/(\d{5,})/))) return m[1] + (u.searchParams.get("h") ? "?h=" + u.searchParams.get("h") : "");
+    return "";
+  }
+  function twitchVodId(u) {
+    var host = u.hostname.toLowerCase().replace(/^(www\.|m\.)/, ""), m;
+    if (host === "twitch.tv" && (m = u.pathname.match(/^\/videos\/(\d+)/))) return m[1];
+    if (host === "player.twitch.tv" && (m = String(u.searchParams.get("video") || "").match(/^v?(\d+)$/))) return m[1];
+    return "";
+  }
   function startSeconds(u) {
-    var t = u.searchParams.get("t") || u.searchParams.get("start") || "", m; if (!t) return 0;
+    var t = u.searchParams.get("t") || u.searchParams.get("start") || (u.hash.match(/t=([\dhms]+)/) || [])[1] || "", m; if (!t) return 0;
     if (/^\d+s?$/.test(t)) return parseInt(t, 10);
     m = t.match(/^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/); return m ? (+m[1] || 0) * 3600 + (+m[2] || 0) * 60 + (+m[3] || 0) : 0;
   }
   function positionEmbed() { if (yt.frame) yt.frame.style.left = (-216.05 * S.focus / 100) + "%"; }
   function clearEmbed() {
-    clearInterval(yt.timer); if (yt.frame) yt.frame.remove();
-    yt.frame = null; yt.ready = false; yt.playing = false;
+    clearInterval(yt.timer); if (yt.frame) yt.frame.remove(); $("embedBox").textContent = "";
+    yt.frame = null; yt.player = null; yt.ready = false; yt.playing = false; yt.kind = "";
     $("embedBox").hidden = true; $("phone").classList.remove("embed-on");
   }
   function backToSample() {
     S.mode = "sample"; S.dur = 600; S.a = 84; S.b = 108; S.t = 84; S.moments = [92, 263, 418]; S.env = null; S.bins = sampleBins(); resetSegs();
     $("focusField").hidden = true; renderMoments(); layout();
   }
-  function loadYouTube(id, start, href) {
+  var twitchLib = null;
+  function loadTwitchLib() {
+    if (window.Twitch && window.Twitch.Player) return Promise.resolve();
+    if (!twitchLib) twitchLib = new Promise(function (ok, fail) { var sc = document.createElement("script"); sc.src = "https://player.twitch.tv/js/embed/v1.js"; sc.onload = ok; sc.onerror = function () { twitchLib = null; fail(); }; document.head.appendChild(sc); });
+    return twitchLib;
+  }
+  function failEmbed(kind) {
+    clearEmbed(); if (S.mode === "embed") backToSample();
+    status(NAMES_EMBED[kind] + " didn't load here. Check the link. Some videos don't allow playing on other sites.");
+  }
+  async function loadEmbed(kind, id, start, href) {
     setPlaying(false); clearResult(); clearEmbed(); video.pause();
     if (S.mode === "embed") backToSample();
-    status("Loading the YouTube video...");
-    yt.href = href; yt.start = start;
-    var f = document.createElement("iframe"), origin = location.origin && location.origin !== "null" ? "&origin=" + encodeURIComponent(location.origin) : "";
-    f.src = "https://www.youtube.com/embed/" + id + "?enablejsapi=1&controls=0&playsinline=1&rel=0&disablekb=1&iv_load_policy=3" + origin;
-    f.allow = "autoplay; encrypted-media"; f.referrerPolicy = "strict-origin-when-cross-origin"; f.title = "YouTube video"; f.tabIndex = -1;
-    yt.frame = f; $("embedBox").appendChild(f); $("embedBox").hidden = false; $("phone").classList.add("embed-on"); positionEmbed();
-    f.addEventListener("load", ytListen);
+    status("Loading the " + NAMES_EMBED[kind] + " video...");
+    yt.kind = kind; yt.href = href; yt.start = start;
+    var box = $("embedBox"); box.hidden = false; $("phone").classList.add("embed-on");
+    if (kind === "twitch") {
+      try { await loadTwitchLib(); } catch (e) { failEmbed(kind); return; }
+      if (yt.kind !== "twitch") return;
+      var holder = document.createElement("div"); holder.id = "twitchHolder"; holder.style.cssText = "position:absolute;inset:0"; box.appendChild(holder);
+      var pl = new window.Twitch.Player("twitchHolder", { video: "v" + id, width: "100%", height: "100%", parent: [location.hostname], autoplay: false, muted: false });
+      yt.player = pl; yt.frame = holder.querySelector("iframe"); if (yt.frame) yt.frame.title = "Twitch video";
+      positionEmbed();
+      pl.addEventListener(window.Twitch.Player.PLAY, function () { yt.playing = true; });
+      pl.addEventListener(window.Twitch.Player.PAUSE, function () { yt.playing = false; });
+    } else {
+      var f = document.createElement("iframe");
+      if (kind === "youtube") {
+        var origin = location.origin && location.origin !== "null" ? "&origin=" + encodeURIComponent(location.origin) : "";
+        f.src = "https://www.youtube.com/embed/" + id + "?enablejsapi=1&controls=0&playsinline=1&rel=0&disablekb=1&iv_load_policy=3" + origin;
+        f.addEventListener("load", ytListen);
+      } else {
+        f.src = "https://player.vimeo.com/video/" + id + (id.indexOf("?") > -1 ? "&" : "?") + "controls=0&playsinline=1&dnt=1&autopause=0";
+      }
+      f.allow = "autoplay; encrypted-media; fullscreen"; f.referrerPolicy = "strict-origin-when-cross-origin"; f.title = NAMES_EMBED[kind] + " video"; f.tabIndex = -1;
+      yt.frame = f; box.appendChild(f); positionEmbed();
+    }
     var tries = 0;
     yt.timer = setInterval(function () {
       if (yt.ready) { clearInterval(yt.timer); return; }
-      if (++tries > 24) { clearEmbed(); if (S.mode === "embed") backToSample(); status("YouTube didn't load here. Check the link. Some videos don't allow playing on other sites."); return; }
-      ytListen();
+      if (++tries > 30) { failEmbed(kind); return; }
+      if (kind === "youtube") ytListen();
+      else if (kind === "vimeo") { vimeoCmd("addEventListener", "timeupdate"); vimeoCmd("addEventListener", "play"); vimeoCmd("addEventListener", "pause"); vimeoCmd("getDuration"); }
+      else if (yt.player) { var d = 0; try { d = yt.player.getDuration(); } catch (e) {} if (d > 0) { yt.ready = true; onEmbedReady(d); } }
     }, 500);
   }
-  function onYtReady(dur) {
+  function onEmbedReady(dur) {
     S.mode = "embed"; S.dur = dur; S.a = clamp(yt.start, 0, Math.max(0, dur - MIN_CLIP)); S.b = Math.min(dur, S.a + 30); S.moments = []; S.env = null; resetSegs();
     S.bins = Array.from({ length: BINS }, function () { return .12; });
     $("focusField").hidden = false; renderMoments(); setPlaying(false); seek(S.a); layout();
     status("Video loaded. Press Play, drag the white edges to trim, then split and cut below.");
   }
   addEventListener("message", function (e) {
-    if (!yt.frame || e.source !== yt.frame.contentWindow || typeof e.data !== "string") return;
-    var d; try { d = JSON.parse(e.data); } catch (err) { return; }
-    var info = d && d.info; if (!info || typeof info !== "object") return;
-    if (typeof info.currentTime === "number") { yt.t = info.currentTime; yt.at = performance.now(); }
-    if (typeof info.playerState === "number") yt.playing = info.playerState === 1;
-    if (!yt.ready && info.duration > 0) { yt.ready = true; onYtReady(info.duration); }
+    if (!yt.frame || e.source !== yt.frame.contentWindow) return;
+    var d = e.data; if (typeof d === "string") { try { d = JSON.parse(d); } catch (err) { return; } }
+    if (!d || typeof d !== "object") return;
+    if (yt.kind === "youtube") {
+      var info = d.info; if (!info || typeof info !== "object") return;
+      if (typeof info.currentTime === "number") { yt.t = info.currentTime; yt.at = performance.now(); }
+      if (typeof info.playerState === "number") yt.playing = info.playerState === 1;
+      if (!yt.ready && info.duration > 0) { yt.ready = true; onEmbedReady(info.duration); }
+    } else if (yt.kind === "vimeo") {
+      if (d.event === "ready") { vimeoCmd("addEventListener", "timeupdate"); vimeoCmd("addEventListener", "play"); vimeoCmd("addEventListener", "pause"); vimeoCmd("getDuration"); }
+      else if (d.event === "timeupdate" && d.data) { yt.t = d.data.seconds; yt.at = performance.now(); if (!yt.ready && d.data.duration > 0) { yt.ready = true; onEmbedReady(d.data.duration); } }
+      else if (d.event === "play") { yt.playing = true; yt.at = performance.now(); }
+      else if (d.event === "pause") yt.playing = false;
+      else if (d.method === "getDuration" && d.value > 0 && !yt.ready) { yt.ready = true; onEmbedReady(d.value); }
+    }
   });
   function exportEmbed() {
     var parts = kept().map(function (g) { return fmt(g.s) + " to " + fmt(g.e); }).join(", ");
-    if (Auth.mode !== "server") { status("Your cut is set: " + parts + " (" + fmt(keptLength()) + " total). Exporting YouTube clips with captions needs the Cutline server, so it works once your site is live."); return; }
-    status("Sending your cut to Cutline...");
-    Auth.post("/api/import-clip", { url: yt.href, segments: kept().map(function (g) { return [g.s, g.e]; }), caption: $("caption").value.trim(), style: S.style, focus: S.focus }).then(function (d) {
-      status(d.ok ? (d.message || "Your clip is being made. It'll show up when it's ready.") : (d.message || "That clip couldn't be made. Try again."));
-    });
+    status("Your cut is set: " + parts + " (" + fmt(keptLength()) + " total). " + NAMES_EMBED[yt.kind] + " doesn't let other sites save its videos, so to export a finished clip, upload the video file or use a Google Drive or Dropbox link.");
   }
   $("linkToggle").addEventListener("click", function () { var r = $("linkRow"), open = r.hidden; r.hidden = !open; this.setAttribute("aria-expanded", String(open)); if (open) $("linkInput").focus(); });
   $("linkRow").addEventListener("submit", function (e) { e.preventDefault(); loadLink($("linkInput").value); });

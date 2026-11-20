@@ -96,6 +96,7 @@ async function api(request, env, url, ctx) {
     case "GET /api/me": return json({ ok: true, user: publicUser(user, env) });
     case "POST /api/clips/claim": return claimClip(env, user);
     case "POST /api/clips/release": return releaseClip(env, user, body);
+    case "GET /api/import/file": return importSharedFile(request, url);
     case "POST /api/import": return json({ ok: false, message: "Importing from Twitch and similar sites isn't available yet. Upload the file or paste a YouTube or direct video link." });
     case "POST /api/import-clip": return json({ ok: false, message: "Making finished clips from YouTube links isn't available yet. Your cut is saved on this page." });
     case "POST /api/plans/checkout": return planCheckout(env, user, body, url);
@@ -199,6 +200,49 @@ async function resetPassword(env, body) {
     env.DB.prepare("DELETE FROM login_fails WHERE email = ?").bind(row.email)
   ]);
   return json({ ok: true, email: row.email });
+}
+
+/* ---------- Shared files ----------
+   Google Drive and Dropbox links stream through here so the editor can play and export them.
+   Only those two hosts are allowed, and only for logged in accounts, so this can't be used as an open proxy. */
+function sharedDownloadUrl(raw) {
+  let u; try { u = new URL(raw); } catch (e) { return null; }
+  if (u.protocol === "http:") u.protocol = "https:";
+  if (u.protocol !== "https:") return null;
+  const host = u.hostname.toLowerCase();
+  if (host === "drive.google.com" || host === "docs.google.com") {
+    const m = u.pathname.match(/\/d\/([\w-]{10,})/), id = m ? m[1] : u.searchParams.get("id");
+    if (!id || !/^[\w-]{10,}$/.test(id)) return null;
+    return { url: "https://drive.usercontent.google.com/download?id=" + id + "&export=download&confirm=t", name: "Google Drive" };
+  }
+  if (host === "dropbox.com" || host === "www.dropbox.com") {
+    u.hostname = "www.dropbox.com"; u.searchParams.delete("raw"); u.searchParams.set("dl", "1");
+    return { url: u.href, name: "Dropbox" };
+  }
+  if (host === "dl.dropboxusercontent.com") return { url: u.href, name: "Dropbox" };
+  return null;
+}
+
+async function importSharedFile(request, url) {
+  const src = sharedDownloadUrl(url.searchParams.get("url") || "");
+  if (!src) return json({ ok: false, message: "Paste a Google Drive or Dropbox share link." }, 400);
+  const headers = { "User-Agent": "Mozilla/5.0 (compatible; Cutline/1.0)" };
+  const range = request.headers.get("Range");
+  if (range) headers.Range = range;
+  let res;
+  try { res = await fetch(src.url, { headers: headers, redirect: "follow" }); }
+  catch (e) { return json({ ok: false, message: src.name + " didn't respond. Try again in a minute." }, 502); }
+  const type = (res.headers.get("Content-Type") || "").toLowerCase();
+  if (res.status === 404 || res.status === 403 || res.status === 401 || type.indexOf("text/html") > -1) {
+    return json({ ok: false, message: "That " + src.name + " file isn't shared publicly. Set its sharing to anyone with the link, then try again." }, 400);
+  }
+  if (!res.ok && res.status !== 206) return json({ ok: false, message: src.name + " couldn't send that file. Try again in a minute." }, 502);
+  if (type && type.indexOf("video/") !== 0 && type.indexOf("application/octet-stream") !== 0 && type.indexOf("binary/") !== 0) {
+    return json({ ok: false, message: "That link isn't a video file. Share the video itself, not a folder or document." }, 400);
+  }
+  const out = new Headers({ "Content-Type": type.indexOf("video/") === 0 ? type : "video/mp4", "Cache-Control": "private, no-store", "Accept-Ranges": "bytes", "X-Content-Type-Options": "nosniff" });
+  ["Content-Length", "Content-Range"].forEach(function (h) { const v = res.headers.get(h); if (v) out.set(h, v); });
+  return new Response(res.body, { status: res.status, headers: out });
 }
 
 /* ---------- Clips ---------- */
