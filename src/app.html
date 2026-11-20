@@ -117,6 +117,11 @@ input[type=range] { width: 100%; height: 26px; accent-color: var(--pink); margin
 .clip-time { margin: 3px 0 12px; font-size: 15px; color: var(--dim); font-variant-numeric: tabular-nums; }
 .export .btn { width: 100%; }
 #saveBtn { margin-top: 8px; }
+.name-row { display: grid; gap: 6px; margin-top: 12px; }
+.name-field { display: flex; align-items: center; border: 1px solid var(--stroke); border-radius: 12px; background: rgba(255,255,255,.06); padding-right: 12px; }
+.name-field:focus-within { border-color: var(--cyan); }
+.name-field input { flex: 1; min-width: 0; border: 0; background: transparent; color: inherit; font: inherit; font-size: 16px; padding: 11px 12px; outline: none; }
+.name-field span { color: var(--dim); font-size: 15px; }
 .bar { height: 5px; border-radius: 9px; background: rgba(255,255,255,.14); overflow: hidden; margin-top: 10px; }
 .bar i { display: block; height: 100%; width: 0; background: var(--flare); }
 .queue { flex: 1; display: flex; flex-direction: column; min-height: 0; }
@@ -825,6 +830,10 @@ html:not(.signed-in) .member-only { display: none !important; }
         <p class="clip-time"><span id="clipLen">0:24</span> long, starts at <span id="clipAt">1:24</span></p>
         <p class="free" id="freeLeft"></p>
         <button class="btn btn-flare" id="exportBtn" type="button">Export clip</button>
+        <div class="name-row" id="nameRow" hidden>
+          <label class="plabel" for="clipName">File name</label>
+          <div class="name-field"><input id="clipName" maxlength="80" placeholder="Name File" autocomplete="off" spellcheck="false" aria-describedby="clipExt"><span id="clipExt">.mp4</span></div>
+        </div>
         <button class="btn btn-white" id="saveBtn" type="button" hidden>Save clip</button>
         <button class="btn btn-ghost" id="postBtn" type="button" hidden>Add to upload queue</button>
         <p class="note post-note" id="postNote" role="status"></p>
@@ -1507,7 +1516,7 @@ window.CutlineAdminStart = function () {
     done.then(function () { renderPreview(); if (recording && rec.state === "paused") rec.resume(); if (S.playing) video.play().catch(function () {}); S.jumping = false; });
   }
 
-  function clearResult() { S.result = null; $("saveBtn").hidden = true; $("postBtn").hidden = true; $("postNote").textContent = ""; }
+  function clearResult() { S.result = null; $("saveBtn").hidden = true; $("nameRow").hidden = true; $("postBtn").hidden = true; $("postNote").textContent = ""; }
   function layout() {
     region.style.left = (S.a / S.dur * 100) + "%"; region.style.width = ((S.b - S.a) / S.dur * 100) + "%"; playhead.style.left = (S.t / S.dur * 100) + "%";
     $("clipLen").textContent = fmt(keptLength()); $("clipAt").textContent = fmt(S.a);
@@ -1829,7 +1838,8 @@ window.CutlineAdminStart = function () {
         var blob = new Blob(chunks, { type: type.split(";")[0] });
         if (!blob.size) { releaseClaim(); status("Export failed. Try a shorter clip or the latest Chrome."); return; }
         var ext = type.indexOf("mp4") > -1 ? "mp4" : "webm", slug = $("caption").value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 36) || "clip";
-        S.result = { blob: blob, name: "cutline-" + slug + "." + ext };
+        S.result = { blob: blob, ext: ext, name: "cutline-" + slug + "." + ext };
+        $("clipName").value = ""; $("clipExt").textContent = "." + ext; $("nameRow").hidden = false;
         $("saveBtn").textContent = "Save clip (" + (blob.size / 1048576).toFixed(1) + " MB)"; $("saveBtn").hidden = false; lastClip = { id: claimId, blob: blob, uploaded: false, length: keptLength(), caption: $("caption").value.trim() }; claimId = null; status("Your clip is ready to save as " + ext.toUpperCase() + "." + (canExport() ? "" : " That was your last clip. Buy coins to make more.")); afterExport();
       };
       rec.start(500); S.playing = true; if (S.mode === "video") await video.play();
@@ -1837,11 +1847,18 @@ window.CutlineAdminStart = function () {
   }
   $("exportBtn").addEventListener("click", startExport);
   document.addEventListener("visibilitychange", function () { if (document.hidden && S.exporting) cancelExport("Export stopped because the tab was hidden. Keep this tab open and export again."); });
+  /* The name people type becomes the file name, minus characters computers don't allow in file names. */
+  function fileName() {
+    var n = $("clipName").value.replace(/[\\/:*?"<>|\u0000-\u001f]+/g, " ").replace(/\s+/g, " ").trim().replace(/\.(mp4|webm)$/i, "").replace(/^\.+/, "").slice(0, 80).trim();
+    return (n || "Cutline clip") + "." + S.result.ext;
+  }
+  $("clipName").addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); $("saveBtn").click(); } });
   $("saveBtn").addEventListener("click", async function () {
     if (!S.result) return;
+    S.result.name = fileName();
     var dl = null; if (window.claude && window.claude.use) { try { dl = await window.claude.use("downloads"); } catch (e) {} }
-    if (dl) { try { await dl.save({ filename: S.result.name, data: S.result.blob }); status("Clip saved. Upload it to TikTok when you're ready."); } catch (e) { status(e && e.code === "declined" ? "Save canceled. Select Save clip to try again." : "The clip couldn't be saved here. Select Save clip to try again."); } return; }
-    var a = document.createElement("a"), url = URL.createObjectURL(S.result.blob); a.href = url; a.download = S.result.name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(url); }, 60000); status("Clip saved. Upload it to TikTok when you're ready.");
+    if (dl) { try { await dl.save({ filename: S.result.name, data: S.result.blob }); status("Saved as " + S.result.name + "."); } catch (e) { status(e && e.code === "declined" ? "Save canceled. Select Save clip to try again." : "The clip couldn't be saved here. Select Save clip to try again."); } return; }
+    var a = document.createElement("a"), url = URL.createObjectURL(S.result.blob); a.href = url; a.download = S.result.name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(url); }, 60000); status("Saved as " + S.result.name + ". Check your Downloads folder.");
   });
 
   /* Connected accounts and uploads */
