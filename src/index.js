@@ -3,6 +3,7 @@
    ADMIN_EMAIL, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, and for reset emails RESEND_API_KEY and EMAIL_FROM.
    For posting to YouTube, TikTok, and Instagram, see the list at the top of src/social.js. */
 import PAGE from "./app.html";
+import { makeCaptions } from "./captions.js";
 import PRIVACY from "./privacy.html";
 import TERMS from "./terms.html";
 import { FAVICON_SVG, ICON_PNG_BASE64, OG_JPG_BASE64 } from "./assets.js";
@@ -80,7 +81,7 @@ async function api(request, env, url, ctx) {
   }
   const route = method + " " + path;
   /* Clip uploads are video, not JSON, so they skip the JSON reader. */
-  const body = method === "POST" && route !== "POST /api/clips/file" ? await readJson(request) : {};
+  const body = method === "POST" && route !== "POST /api/clips/file" && route !== "POST /api/captions" ? await readJson(request) : {};
   const user = await currentUser(request, env);
 
   switch (route) {
@@ -94,6 +95,7 @@ async function api(request, env, url, ctx) {
 
   switch (route) {
     case "GET /api/me": return json({ ok: true, user: publicUser(user, env) });
+    case "POST /api/captions": return makeCaptions(request, env, user);
     case "POST /api/clips/claim": return claimClip(env, user);
     case "POST /api/clips/release": return releaseClip(env, user, body);
     case "GET /api/import/file": return importSharedFile(request, url);

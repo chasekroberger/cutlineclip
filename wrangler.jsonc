@@ -10,6 +10,8 @@
   "keep_vars": true,
   // Files in public/ (like the example video) are served as they are.
   "assets": { "directory": "./public" },
+  // Workers AI, used for auto captions (speech to text).
+  "ai": { "binding": "AI" },
   // Posts queued clips to YouTube, TikTok, and Instagram every minute.
   "triggers": { "crons": ["* * * * *"] },
   "observability": { "enabled": true }

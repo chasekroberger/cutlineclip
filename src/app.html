@@ -114,6 +114,11 @@ h1 .l2 { text-align: right; background: var(--flare); -webkit-background-clip: t
 input[type=range] { width: 100%; height: 26px; accent-color: var(--pink); margin: 0; }
 .frame-row { display: grid; grid-template-columns: 92px minmax(0, 1fr); align-items: center; gap: 10px; font-size: 14px; color: var(--dim); }
 .frame-row + .frame-row { margin-top: 2px; }
+.autocap { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+.autocap .chip { padding: 8px 14px; }
+.autocap .chip[aria-pressed=true] { background: var(--pink); border-color: var(--pink); color: #fff; }
+.autocap .chip:disabled { opacity: .6; cursor: progress; }
+#autoCapNote { font-size: 13px; color: var(--dim); }
 .frame-reset { margin-top: 6px; padding: 0; border: 0; background: none; color: var(--cyan); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
 .frame-reset:hover { text-decoration: underline; }
 .export { background: linear-gradient(145deg, rgba(255,46,136,.2), rgba(39,232,242,.09)); }
@@ -813,7 +818,9 @@ html:not(.signed-in) .member-only { display: none !important; }
         </div>
         <form class="link-row" id="linkRow" hidden novalidate><input id="linkInput" type="url" inputmode="url" placeholder="Paste a YouTube, Twitch, Vimeo, Drive, or Dropbox link" aria-label="Video link"><button class="tool" type="submit">Load</button></form>
       </div>
-      <div><label class="lbl" for="caption">Caption</label><input id="caption" maxlength="70" value="When the squad finally clutches" placeholder="Add a caption (optional)"></div>
+      <div><label class="lbl" for="caption">Caption</label><input id="caption" maxlength="70" value="When the squad finally clutches" placeholder="Add a caption (optional)">
+        <div class="autocap"><button class="chip" id="autoCapBtn" type="button" aria-pressed="false">Auto captions</button><span id="autoCapNote">Words show up as people talk.</span></div>
+      </div>
       <div>
         <span class="lbl" id="styleLabel">Caption style</span>
         <div class="row" role="group" aria-labelledby="styleLabel">
@@ -1226,7 +1233,7 @@ window.CutlineAuth = (function () {
   /* Visitors can try the editor. Exporting, connecting accounts, plans, and coins go to sign up first. */
   document.addEventListener("click", function (e) {
     if (signedIn()) return;
-    var t = e.target.closest && e.target.closest('[data-plan], [data-pack], #exportBtn, #postBtn, #accts button');
+    var t = e.target.closest && e.target.closest('[data-plan], [data-pack], #exportBtn, #postBtn, #accts button, #autoCapBtn');
     if (!t) return; e.preventDefault(); e.stopImmediatePropagation();
     if (t.closest("#studio")) { try { sessionStorage.setItem("cutline_try_caption", $("caption").value); } catch (x) {} }
     location.hash = "signup";
@@ -1402,12 +1409,47 @@ window.CutlineAdminStart = function () {
     });
     c.restore();
   }
-  function renderPreview() { if (S.mode === "sample") drawSample(pctx, S.t); else if (S.mode === "embed") drawEmbedCover(pctx); else drawVideo(pctx); drawCaption(pctx, $("caption").value); }
+  function renderPreview() { if (S.mode === "sample") drawSample(pctx, S.t); else if (S.mode === "embed") drawEmbedCover(pctx); else drawVideo(pctx); drawCaption(pctx, $("caption").value); if (S.mode === "video") drawAutoCaption(pctx, S.t); }
+  /* Auto captions: up to 3 words at a time, timed to the talking, with the word being said highlighted. */
+  function drawAutoCaption(c, t) {
+    if (!S.autoCap || !S.chunks) return;
+    var ch = null; for (var i = 0; i < S.chunks.length; i++) { if (t >= S.chunks[i].s - .05 && t < S.chunks[i].end) { ch = S.chunks[i]; break; } if (S.chunks[i].s > t) break; }
+    if (!ch) return;
+    var size = 58, family = '"Anybody", "Arial Black", Arial, sans-serif', words = ch.words.map(function (w) { return w.w.toUpperCase(); });
+    c.save(); c.font = "italic 900 " + size + "px " + family; c.textBaseline = "middle"; c.lineJoin = "round"; c.textAlign = "left";
+    var space = c.measureText(" ").width, total = function () { return words.reduce(function (n, w) { return n + c.measureText(w).width; }, 0) + space * (words.length - 1); };
+    while (total() > W - 60 && size > 26) { size -= 4; c.font = "italic 900 " + size + "px " + family; space = c.measureText(" ").width; }
+    var x = (W - total()) / 2, y = H * .76;
+    if (S.style === "box") { c.fillStyle = "#fff"; c.fillRect(x - 14, y - size * .62, total() + 28, size * 1.24); }
+    ch.words.forEach(function (w, i) {
+      var on = t >= w.s && t < Math.max(w.e, w.s + .12), text = words[i];
+      if (S.style === "box") { c.fillStyle = on ? "#ff2e88" : "#0b0914"; c.fillText(text, x, y + 2); }
+      else if (S.style === "neon") { c.shadowColor = "#ff2e88"; c.shadowBlur = 24; c.fillStyle = on ? "#fff" : "#27e8f2"; c.fillText(text, x, y); c.shadowBlur = 0; }
+      else { c.lineWidth = 13; c.strokeStyle = "#07060d"; c.strokeText(text, x, y); c.fillStyle = on ? "#ffe14d" : "#fff"; c.fillText(text, x, y); }
+      x += c.measureText(text).width + space;
+    });
+    c.restore();
+  }
   /* YouTube, Vimeo, and Twitch flash their own play button and title before a video starts.
      A black screen covers the player until the video is really playing, then fades away. */
   function drawEmbedCover(c) {
     var now = performance.now(), a = !yt.clearAt || now < yt.clearAt ? 1 : 1 - (now - yt.clearAt) / 300;
-    c.clearRect(0, 0, W, H); if (a <= 0) return;
+    c.clearRect(0, 0, W, H);
+    if (a <= 0) {
+      if (!yt.el || !yt.el.isConnected) return;
+      var ir = yt.el.getBoundingClientRect(), cr = $("preview").getBoundingClientRect(); if (!cr.width) return;
+      var kx = W / cr.width, ky = H / cr.height, vh = ir.height * yt.share;
+      var x = (ir.left - cr.left) * kx + 3, y = (ir.top + (ir.height - vh) / 2 - cr.top) * ky + 3, w = ir.width * kx - 6, h = vh * ky - 6;
+      c.fillStyle = "#000"; c.fillRect(0, 0, W, Math.max(0, y)); c.fillRect(0, y + h, W, Math.max(0, H - y - h)); c.fillRect(0, y, Math.max(0, x), h); c.fillRect(x + w, y, Math.max(0, W - x - w), h);
+      /* When paused or loading, YouTube shows its own button in the middle of the player. Cutline's play button covers it. */
+      if (!yt.playing) {
+        var cx = x + w / 2, cy = y + h / 2, rad = 62 * kx;
+        c.save(); c.beginPath(); c.arc(cx, cy, rad, 0, Math.PI * 2); c.fillStyle = "#0f0c1d"; c.fill();
+        c.lineWidth = 4 * kx; c.strokeStyle = "rgba(255,255,255,.25)"; c.stroke();
+        c.beginPath(); c.moveTo(cx - rad * .28, cy - rad * .4); c.lineTo(cx + rad * .45, cy); c.lineTo(cx - rad * .28, cy + rad * .4); c.closePath(); c.fillStyle = "#fff"; c.fill(); c.restore();
+      }
+      return;
+    }
     c.fillStyle = "rgba(0,0,0," + a + ")"; c.fillRect(0, 0, W, H);
     if (a < .6) return;
     c.save(); c.fillStyle = "rgba(255,255,255,.75)"; c.font = "600 34px Geist, Arial, sans-serif"; c.textAlign = "center"; c.textBaseline = "middle";
@@ -1594,6 +1636,7 @@ window.CutlineAdminStart = function () {
   function setupVideo(label, src, isLink, scan) {
     video.muted = label === DEMO.label;
     if (label !== DEMO.label) { clearDemoCaption(); setFrame(50, 50, 100); }
+    S.srcFile = null; S.srcUrl = null; resetAutoCap();
     setPlaying(false); clearResult(); clearEmbed(); status("Opening " + label + "...");
     if (video.src && video.src.indexOf("blob:") === 0) URL.revokeObjectURL(video.src);
     video.onerror = function () { status(isLink ? "That link didn't load. Paste a direct link to a video file, like one ending in .mp4, from a site that allows it." : "This browser can't play that file. Try an MP4 video."); };
@@ -1622,10 +1665,62 @@ window.CutlineAdminStart = function () {
     });
     video.onerror = function () { status(""); if (!reduced) setPlaying(true); };
   }
+  /* Auto captions. The clip's sound (only the part between the white edges) goes to the Cutline server as a small WAV file,
+     which turns speech into timed words. YouTube, Vimeo, and Twitch don't share their sound, so they can't be captioned. */
+  S.words = null; S.chunks = null; S.autoCap = false; S.capRange = null;
+  function setAutoCapUI(note) { $("autoCapBtn").setAttribute("aria-pressed", String(S.autoCap)); if (note !== undefined) $("autoCapNote").textContent = note; }
+  function resetAutoCap() { S.words = null; S.chunks = null; S.autoCap = false; S.capRange = null; setAutoCapUI("Words show up as people talk."); }
+  function chunkWords(words) {
+    var out = [], cur = [];
+    words.forEach(function (w, i) {
+      var prev = cur[cur.length - 1];
+      if (cur.length && (cur.length >= 3 || w.s - prev.e > .6 || /[.?!,]$/.test(prev.w))) { out.push(cur); cur = []; }
+      cur.push(w);
+    });
+    if (cur.length) out.push(cur);
+    return out.map(function (g, i) { var next = out[i + 1]; return { words: g, s: g[0].s, end: Math.min(g[g.length - 1].e + .5, next ? next[0].s : Infinity) }; });
+  }
+  async function clipWav(blob, a, b) {
+    var AC = window.OfflineAudioContext || window.webkitOfflineAudioContext, rate = 16000;
+    var audio = await new AC(1, rate, rate).decodeAudioData(await blob.arrayBuffer());
+    var s0 = Math.max(0, Math.floor(a * audio.sampleRate)), s1 = Math.min(audio.length, Math.ceil(b * audio.sampleRate)), n = Math.max(0, s1 - s0);
+    var mix = new Float32Array(n);
+    for (var ch = 0; ch < audio.numberOfChannels; ch++) { var d = audio.getChannelData(ch); for (var i = 0; i < n; i++) mix[i] += d[s0 + i] / audio.numberOfChannels; }
+    var out = new DataView(new ArrayBuffer(44 + n * 2)), str = function (o, t) { for (var k = 0; k < t.length; k++) out.setUint8(o + k, t.charCodeAt(k)); };
+    str(0, "RIFF"); out.setUint32(4, 36 + n * 2, true); str(8, "WAVE"); str(12, "fmt "); out.setUint32(16, 16, true); out.setUint16(20, 1, true); out.setUint16(22, 1, true);
+    out.setUint32(24, audio.sampleRate, true); out.setUint32(28, audio.sampleRate * 2, true); out.setUint16(32, 2, true); out.setUint16(34, 16, true); str(36, "data"); out.setUint32(40, n * 2, true);
+    for (i = 0; i < n; i++) out.setInt16(44 + i * 2, Math.max(-1, Math.min(1, mix[i])) * 32767, true);
+    return new Blob([out.buffer], { type: "audio/wav" });
+  }
+  $("autoCapBtn").addEventListener("click", async function () {
+    if (S.exporting) return;
+    if (S.autoCap) { S.autoCap = false; setAutoCapUI("Auto captions are off."); clearResult(); renderPreview(); return; }
+    if (S.mode === "embed") { status("Auto captions work on uploaded videos and Google Drive or Dropbox links. " + NAMES_EMBED[yt.kind] + " doesn't share its sound with other sites."); return; }
+    if (S.mode !== "video" || (!S.srcFile && !S.srcUrl)) { status("The example video has no sound. Upload a video with talking to try auto captions."); return; }
+    var a = keptStart(), b = keptEnd();
+    if (S.words && S.capRange && a >= S.capRange[0] - .3 && b <= S.capRange[1] + .3) { S.autoCap = true; setAutoCapUI("Auto captions are on."); clearResult(); renderPreview(); return; }
+    if (b - a > 240) { status("Auto captions work on clips up to 4 minutes. Trim the clip, then try again."); return; }
+    if (Auth.mode !== "server") { status("Auto captions work once your site is live."); return; }
+    var btn = $("autoCapBtn"); btn.disabled = true; setAutoCapUI("Listening to your clip..."); status("Listening to your clip. This takes a few seconds.");
+    try {
+      var blob = S.srcFile || await (await fetch(S.srcUrl, { credentials: "same-origin" })).blob();
+      var wav = await clipWav(blob, a, b);
+      var r = await fetch("/api/captions", { method: "POST", headers: { "Content-Type": "audio/wav" }, body: wav, credentials: "same-origin" }), d = {};
+      try { d = await r.json(); } catch (e) {}
+      if (!r.ok || !d.ok) { setAutoCapUI("Words show up as people talk."); status(d.message || "Auto captions didn't work this time. Try again."); return; }
+      if (!d.words || !d.words.length) { setAutoCapUI("No talking found."); status("Cutline didn't hear any talking in this clip."); return; }
+      S.words = d.words.map(function (w) { return { w: String(w.w), s: +w.s + a, e: +w.e + a }; });
+      S.chunks = chunkWords(S.words); S.capRange = [a, b]; S.autoCap = true; clearResult();
+      setAutoCapUI("Auto captions are on. Changed the clip? Tap twice to redo them.");
+      status("Auto captions added. Press Play to watch them follow along."); renderPreview();
+    } catch (e) {
+      setAutoCapUI("Words show up as people talk."); status("Auto captions couldn't read this video's sound. Try a different file.");
+    } finally { btn.disabled = false; }
+  });
   function loadFile(file) {
     if (!file || S.exporting) return;
     if (file.type && file.type.indexOf("video/") !== 0) { status("That file isn't a video. Choose an MP4, MOV, or WebM file."); return; }
-    setupVideo(file.name, URL.createObjectURL(file), false, function () { scanAudio(file); });
+    setupVideo(file.name, URL.createObjectURL(file), false, function () { scanAudio(file); }); S.srcFile = file; S.srcUrl = null;
   }
   /* Links. YouTube, Vimeo, and Twitch videos play in their own players so you can cut them here.
      Google Drive and Dropbox files open through the Cutline server and export like an upload.
@@ -1650,7 +1745,7 @@ window.CutlineAdminStart = function () {
     if (/(^|\.)twitch\.tv$/.test(host)) { status("Paste a Twitch video link, the kind with /videos/ in it. Twitch clips and live channels can't be cut here yet."); return; }
     if (SHARE_HOSTS.test(host)) { loadShared(u); return; }
     if (PLATFORM_HOSTS.test(host)) { status("Links from that site can't be opened yet. Try YouTube, Twitch, Vimeo, Google Drive, Dropbox, or upload the file."); return; }
-    setupVideo(decodeURIComponent(u.pathname.split("/").pop() || "") || "your link", u.href, true, function () { scanLink(u.href); });
+    setupVideo(decodeURIComponent(u.pathname.split("/").pop() || "") || "your link", u.href, true, function () { scanLink(u.href); }); S.srcFile = null; S.srcUrl = u.href;
   }
   /* Shared files from Google Drive and Dropbox stream through the Cutline server, so they export like an upload. */
   async function loadShared(u) {
@@ -1663,7 +1758,7 @@ window.CutlineAdminStart = function () {
       if (!r.ok) { var d = {}; try { d = await r.json(); } catch (e) {} status(d.message || "That file couldn't be opened. Check that the link is shared with anyone who has it."); return; }
       try { r.body && r.body.cancel(); } catch (e) {}
     } catch (e) { status("Couldn't reach Cutline. Check your connection and try again."); return; }
-    setupVideo(/dropbox/.test(u.hostname) ? "your Dropbox file" : "your Google Drive file", src, true, function () { scanLink(src); });
+    setupVideo(/dropbox/.test(u.hostname) ? "your Dropbox file" : "your Google Drive file", src, true, function () { scanLink(src); }); S.srcFile = null; S.srcUrl = src;
   }
 
   /* YouTube, Vimeo, and Twitch videos play in their own players inside the phone frame, controlled from the timeline and editor. */
@@ -1709,12 +1804,15 @@ window.CutlineAdminStart = function () {
   }
   function positionEmbed() {
     var th = document.getElementById("twitchHolder"), el = yt.frame || (th && th.querySelector("iframe")); if (!el) return;
-    var w = 316.05 * S.zoom, h = 100 * S.zoom;
-    el.style.width = w + "%"; el.style.height = h + "%"; el.style.left = framePos(100, w, S.focus) + "%"; el.style.top = framePos(100, h, S.focusY) + "%";
+    /* The player is made taller than the video, so YouTube letterboxes it and puts its title bar and logo
+       in the empty space above and below. That space sits outside the phone frame, or is blacked out by drawEmbedCover. */
+    var boxH = $("embedBox").clientHeight || 600, w = 316.05 * S.zoom, h = 100 * S.zoom, pad = Math.max(h * .3, 140 / boxH * 100), L = framePos(100, w, S.focus), T = framePos(100, h, S.focusY);
+    el.style.width = w + "%"; el.style.height = (h + 2 * pad) + "%"; el.style.left = L + "%"; el.style.top = (T - pad) + "%";
+    yt.el = el; yt.share = h / (h + 2 * pad);
   }
   function clearEmbed() {
     clearInterval(yt.timer); if (yt.frame) yt.frame.remove(); $("embedBox").textContent = "";
-    yt.frame = null; yt.player = null; yt.ready = false; yt.playing = false; yt.kind = ""; yt.clearAt = 0;
+    yt.frame = null; yt.player = null; yt.ready = false; yt.playing = false; yt.kind = ""; yt.clearAt = 0; yt.el = null;
     $("embedBox").hidden = true; $("phone").classList.remove("embed-on");
   }
   function backToSample() {
@@ -1732,7 +1830,7 @@ window.CutlineAdminStart = function () {
     status(NAMES_EMBED[kind] + " didn't load here. Check the link. Some videos don't allow playing on other sites.");
   }
   async function loadEmbed(kind, id, start, href) {
-    setPlaying(false); clearResult(); clearEmbed(); video.pause(); clearDemoCaption(); setFrame(50, 50, 100);
+    setPlaying(false); clearResult(); clearEmbed(); video.pause(); clearDemoCaption(); setFrame(50, 50, 100); resetAutoCap();
     if (S.mode === "embed") backToSample();
     status("Loading the " + NAMES_EMBED[kind] + " video...");
     yt.kind = kind; yt.href = href; yt.start = start;
@@ -1784,7 +1882,7 @@ window.CutlineAdminStart = function () {
       var info = d.info; if (!info || typeof info !== "object") return;
       if (typeof info.currentTime === "number") { yt.t = info.currentTime; yt.at = performance.now(); }
       if (typeof info.playerState === "number") {
-        var was = yt.playing; yt.playing = info.playerState === 1; if (yt.playing && !was) ytNoCaptions();
+        var was = yt.playing; yt.playing = info.playerState === 1; if (yt.playing && !was) ytNoCaptions(); if (yt.playing !== was) renderPreview();
         if (yt.playing && !yt.clearAt) yt.clearAt = performance.now() + 700;
         if (info.playerState === -1 || info.playerState === 0 || info.playerState === 5) { yt.clearAt = 0; renderPreview(); }
       }
@@ -1793,7 +1891,7 @@ window.CutlineAdminStart = function () {
       if (d.event === "ready") { vimeoCmd("addEventListener", "timeupdate"); vimeoCmd("addEventListener", "play"); vimeoCmd("addEventListener", "pause"); vimeoCmd("getDuration"); }
       else if (d.event === "timeupdate" && d.data) { yt.t = d.data.seconds; yt.at = performance.now(); if (!yt.ready && d.data.duration > 0) { yt.ready = true; onEmbedReady(d.data.duration); } }
       else if (d.event === "play") { yt.playing = true; yt.at = performance.now(); if (!yt.clearAt) yt.clearAt = performance.now() + 500; }
-      else if (d.event === "pause") yt.playing = false;
+      else if (d.event === "pause") { yt.playing = false; renderPreview(); }
       else if (d.method === "getDuration" && d.value > 0 && !yt.ready) { yt.ready = true; onEmbedReady(d.value); }
     }
   });
