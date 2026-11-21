@@ -112,6 +112,10 @@ h1 .l2 { text-align: right; background: var(--flare); -webkit-background-clip: t
 .chip { flex: 1 1 0; min-height: 44px; border-radius: 12px; border: 1px solid var(--stroke); background: transparent; font-weight: 600; font-size: 15px; }
 .chip[aria-pressed=true] { background: var(--text); color: #0b0914; border-color: var(--text); }
 input[type=range] { width: 100%; height: 26px; accent-color: var(--pink); margin: 0; }
+.frame-row { display: grid; grid-template-columns: 92px minmax(0, 1fr); align-items: center; gap: 10px; font-size: 14px; color: var(--dim); }
+.frame-row + .frame-row { margin-top: 2px; }
+.frame-hint { margin-top: 4px; min-height: 0; font-size: 13px; }
+.frame-hint:empty { display: none; }
 .export { background: linear-gradient(145deg, rgba(255,46,136,.2), rgba(39,232,242,.09)); }
 .export h3 { font-size: 18px; }
 .clip-time { margin: 3px 0 12px; font-size: 15px; color: var(--dim); font-variant-numeric: tabular-nums; }
@@ -818,7 +822,13 @@ html:not(.signed-in) .member-only { display: none !important; }
           <button class="chip" type="button" data-style="box" aria-pressed="false">Box</button>
         </div>
       </div>
-      <div id="focusField" hidden><label class="lbl" for="focus">Frame position</label><input id="focus" type="range" min="0" max="100" value="50"></div>
+      <div id="focusField" hidden>
+        <span class="lbl">Frame position</span>
+        <label class="frame-row"><span>Left / right</span><input id="focus" type="range" min="0" max="100" value="50"></label>
+        <label class="frame-row"><span>Up / down</span><input id="focusY" type="range" min="0" max="100" value="50"></label>
+        <label class="frame-row"><span>Zoom</span><input id="zoom" type="range" min="100" max="250" value="100"></label>
+        <p class="note frame-hint" id="frameHint" aria-live="polite"></p>
+      </div>
       <p class="note tip">Works best in the latest Chrome or Edge on a computer. Exporting takes as long as your clip plays.</p>
     </div>
 
@@ -1372,8 +1382,10 @@ window.CutlineAdminStart = function () {
   function drawVideo(c) {
     var vw = video.videoWidth, vh = video.videoHeight, r = W / H, sx = 0, sy = 0, sw = vw, sh = vh;
     c.fillStyle = "#000"; c.fillRect(0, 0, W, H); if (!vw || !vh) return;
-    if (vw / vh > r) { sw = vh * r; sx = (vw - sw) * S.focus / 100; } else { sh = vw / r; sy = (vh - sh) * S.focus / 100; }
+    if (vw / vh > r) sw = vh * r; else sh = vw / r;
+    sw /= S.zoom; sh /= S.zoom; sx = (vw - sw) * S.focus / 100; sy = (vh - sh) * S.focusY / 100;
     c.drawImage(video, sx, sy, sw, sh, 0, 0, W, H);
+    frameHint(vw, vh);
   }
   function drawCaption(c, text) {
     text = text.trim(); if (!text) return;
@@ -1554,7 +1566,17 @@ window.CutlineAdminStart = function () {
 
   $("playBtn").addEventListener("click", function () { setPlaying(!S.playing); });
   $("caption").addEventListener("input", function () { clearResult(); renderPreview(); });
-  $("focus").addEventListener("input", function (e) { clearResult(); S.focus = +e.target.value; positionEmbed(); renderPreview(); });
+  /* Framing: move left and right, up and down, and zoom in. A slider with no room to move says so. */
+  S.focusY = 50; S.zoom = 1;
+  function frameHint(vw, vh) {
+    var wide = vw / vh > W / H, roomX = !wide ? S.zoom > 1.001 : true, roomY = wide ? S.zoom > 1.001 : true;
+    var msg = !roomY ? "Zoom in to move the frame up or down." : !roomX ? "Zoom in to move the frame left or right." : "";
+    if ($("frameHint").textContent !== msg) $("frameHint").textContent = msg;
+  }
+  function onFrame() { clearResult(); positionEmbed(); renderPreview(); }
+  $("focus").addEventListener("input", function (e) { S.focus = +e.target.value; onFrame(); });
+  $("focusY").addEventListener("input", function (e) { S.focusY = +e.target.value; onFrame(); });
+  $("zoom").addEventListener("input", function (e) { S.zoom = +e.target.value / 100; onFrame(); });
   document.querySelectorAll(".chip").forEach(function (c) { c.addEventListener("click", function () { clearResult(); S.style = c.dataset.style; document.querySelectorAll(".chip").forEach(function (x) { x.setAttribute("aria-pressed", x === c ? "true" : "false"); }); renderPreview(); }); });
 
   /* Your own video */
@@ -1642,10 +1664,12 @@ window.CutlineAdminStart = function () {
   var yt = { kind: "", frame: null, player: null, ready: false, t: 0, at: 0, playing: false, href: "", start: 0, timer: null };
   function post2(msg, origin) { if (yt.frame && yt.frame.contentWindow) yt.frame.contentWindow.postMessage(typeof msg === "string" ? msg : JSON.stringify(msg), origin); }
   function ytCmd(func, args) { post2({ event: "command", func: func, args: args || [], id: "cutline", channel: "widget" }, "*"); }
+  /* YouTube can turn its own subtitles on by itself, from the video's or the viewer's settings. The editor keeps them off. */
+  function ytNoCaptions() { ytCmd("unloadModule", ["captions"]); ytCmd("unloadModule", ["cc"]); }
   function ytListen() { post2({ event: "listening", id: "cutline", channel: "widget" }, "*"); }
   function vimeoCmd(method, value) { post2(value === undefined ? { method: method } : { method: method, value: value }, "https://player.vimeo.com"); }
   function embedCmd(action, t) {
-    if (yt.kind === "youtube") ytCmd(action === "seek" ? "seekTo" : action === "play" ? "playVideo" : "pauseVideo", action === "seek" ? [t, true] : []);
+    if (yt.kind === "youtube") { ytCmd(action === "seek" ? "seekTo" : action === "play" ? "playVideo" : "pauseVideo", action === "seek" ? [t, true] : []); if (action !== "pause") { ytNoCaptions(); setTimeout(ytNoCaptions, 900); } }
     else if (yt.kind === "vimeo") vimeoCmd(action === "seek" ? "setCurrentTime" : action, action === "seek" ? t : undefined);
     else if (yt.kind === "twitch" && yt.player) { try { if (action === "seek") yt.player.seek(t); else if (action === "play") yt.player.play(); else yt.player.pause(); } catch (e) {} }
   }
@@ -1676,7 +1700,12 @@ window.CutlineAdminStart = function () {
     if (/^\d+s?$/.test(t)) return parseInt(t, 10);
     m = t.match(/^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/); return m ? (+m[1] || 0) * 3600 + (+m[2] || 0) * 60 + (+m[3] || 0) : 0;
   }
-  function positionEmbed() { if (yt.frame) yt.frame.style.left = (-216.05 * S.focus / 100) + "%"; }
+  function positionEmbed() {
+    var th = document.getElementById("twitchHolder"), el = yt.frame || (th && th.querySelector("iframe")); if (!el) return;
+    var w = 316.05 * S.zoom, h = 100 * S.zoom;
+    el.style.width = w + "%"; el.style.height = h + "%"; el.style.left = (-(w - 100) * S.focus / 100) + "%"; el.style.top = (-(h - 100) * S.focusY / 100) + "%";
+    if (S.mode === "embed") frameHint(16, 9);
+  }
   function clearEmbed() {
     clearInterval(yt.timer); if (yt.frame) yt.frame.remove(); $("embedBox").textContent = "";
     yt.frame = null; yt.player = null; yt.ready = false; yt.playing = false; yt.kind = "";
@@ -1715,7 +1744,7 @@ window.CutlineAdminStart = function () {
       var f = document.createElement("iframe");
       if (kind === "youtube") {
         var origin = location.origin && location.origin !== "null" ? "&origin=" + encodeURIComponent(location.origin) : "";
-        f.src = "https://www.youtube.com/embed/" + id + "?enablejsapi=1&controls=0&playsinline=1&rel=0&disablekb=1&iv_load_policy=3" + origin;
+        f.src = "https://www.youtube.com/embed/" + id + "?enablejsapi=1&controls=0&playsinline=1&rel=0&disablekb=1&iv_load_policy=3&cc_load_policy=0" + origin;
         f.addEventListener("load", ytListen);
       } else {
         f.src = "https://player.vimeo.com/video/" + id + (id.indexOf("?") > -1 ? "&" : "?") + "controls=0&playsinline=1&dnt=1&autopause=0";
@@ -1735,7 +1764,7 @@ window.CutlineAdminStart = function () {
   function onEmbedReady(dur) {
     S.mode = "embed"; S.dur = dur; S.a = clamp(yt.start, 0, Math.max(0, dur - MIN_CLIP)); S.b = Math.min(dur, S.a + 30); S.moments = []; S.env = null; resetSegs();
     S.bins = Array.from({ length: BINS }, function () { return .12; });
-    $("focusField").hidden = false; renderMoments(); setPlaying(false); seek(S.a); layout();
+    $("focusField").hidden = false; positionEmbed(); renderMoments(); setPlaying(false); seek(S.a); layout();
     status("Video loaded. Press Play, drag the white edges to trim, then split and cut below.");
   }
   addEventListener("message", function (e) {
@@ -1745,7 +1774,7 @@ window.CutlineAdminStart = function () {
     if (yt.kind === "youtube") {
       var info = d.info; if (!info || typeof info !== "object") return;
       if (typeof info.currentTime === "number") { yt.t = info.currentTime; yt.at = performance.now(); }
-      if (typeof info.playerState === "number") yt.playing = info.playerState === 1;
+      if (typeof info.playerState === "number") { var was = yt.playing; yt.playing = info.playerState === 1; if (yt.playing && !was) ytNoCaptions(); }
       if (!yt.ready && info.duration > 0) { yt.ready = true; onEmbedReady(info.duration); }
     } else if (yt.kind === "vimeo") {
       if (d.event === "ready") { vimeoCmd("addEventListener", "timeupdate"); vimeoCmd("addEventListener", "play"); vimeoCmd("addEventListener", "pause"); vimeoCmd("getDuration"); }
