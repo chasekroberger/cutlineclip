@@ -731,6 +731,27 @@ html:not(.signed-in) .member-only { display: none !important; }
 .try-steps li { display: flex; align-items: center; gap: 9px; padding: 7px 15px 7px 7px; border-radius: 999px; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.14); color: #ebe8f8; font-size: 14.5px; font-weight: 550; }
 .try-steps b { width: 26px; height: 26px; flex: none; border-radius: 50%; display: grid; place-items: center; background: linear-gradient(135deg, #ff2e88, #8a5cff); color: #fff; font-size: 13px; }
 .hero-dark .studio { margin-top: 0; border: 1px solid rgba(255,255,255,.12); box-shadow: 0 40px 100px rgba(0,0,0,.5), 0 0 80px rgba(138,92,255,.18); }
+
+/* One-screen editor: the video sizes itself to the screen, the side panels scroll inside themselves,
+   and the timeline and cut editor are compact, so the video stays in view while editing. */
+.studio { --pw: clamp(200px, calc((100vh - 440px) * .5625), 300px); --ph: calc(var(--pw) * 16 / 9 + 12px); scroll-margin-top: 76px; }
+@media (min-width: 1081px) {
+  .studio { grid-template-columns: minmax(0, 1fr) var(--pw) minmax(0, 1fr); align-items: start; gap: 12px; }
+  .studio .edit, .studio .side { max-height: var(--ph); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.28) transparent; padding-right: 8px; }
+  .studio .timeline { padding: 10px 20px 8px; }
+  .studio .track { height: 80px; }
+  .studio .editor { padding: 10px 20px 8px; gap: 6px; }
+  .studio .ed-head .note { display: none; }
+  .studio .ed-head h3 { font-size: 16px; }
+  .studio .ed-track { height: 78px; }
+  .studio .ed-tools .tool { min-height: 38px; padding-block: 6px; }
+}
+@media (min-width: 621px) and (max-width: 1080px) {
+  .studio { --pw: clamp(190px, calc((100vh - 430px) * .5625), 260px); grid-template-columns: var(--pw) minmax(0, 1fr); grid-template-areas: "phone edit" "time time" "cut cut" "side side"; align-items: start; }
+  .studio .edit { max-height: var(--ph); overflow-y: auto; overscroll-behavior: contain; padding-right: 8px; }
+  .studio .track, .studio .ed-track { height: 84px; }
+  .studio .ed-head .note { display: none; }
+}
 </style>
 </head>
 <body>
