@@ -114,8 +114,8 @@ h1 .l2 { text-align: right; background: var(--flare); -webkit-background-clip: t
 input[type=range] { width: 100%; height: 26px; accent-color: var(--pink); margin: 0; }
 .frame-row { display: grid; grid-template-columns: 92px minmax(0, 1fr); align-items: center; gap: 10px; font-size: 14px; color: var(--dim); }
 .frame-row + .frame-row { margin-top: 2px; }
-.frame-hint { margin-top: 4px; min-height: 0; font-size: 13px; }
-.frame-hint:empty { display: none; }
+.frame-reset { margin-top: 6px; padding: 0; border: 0; background: none; color: var(--cyan); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.frame-reset:hover { text-decoration: underline; }
 .export { background: linear-gradient(145deg, rgba(255,46,136,.2), rgba(39,232,242,.09)); }
 .export h3 { font-size: 18px; }
 .clip-time { margin: 3px 0 12px; font-size: 15px; color: var(--dim); font-variant-numeric: tabular-nums; }
@@ -826,8 +826,8 @@ html:not(.signed-in) .member-only { display: none !important; }
         <span class="lbl">Frame position</span>
         <label class="frame-row"><span>Left / right</span><input id="focus" type="range" min="0" max="100" value="50"></label>
         <label class="frame-row"><span>Up / down</span><input id="focusY" type="range" min="0" max="100" value="50"></label>
-        <label class="frame-row"><span>Zoom</span><input id="zoom" type="range" min="100" max="250" value="100"></label>
-        <p class="note frame-hint" id="frameHint" aria-live="polite"></p>
+        <label class="frame-row"><span>Zoom</span><input id="zoom" type="range" min="25" max="300" value="100"></label>
+        <button class="frame-reset" id="frameReset" type="button">Reset frame</button>
       </div>
       <p class="note tip">Works best in the latest Chrome or Edge on a computer. Exporting takes as long as your clip plays.</p>
     </div>
@@ -1382,10 +1382,8 @@ window.CutlineAdminStart = function () {
   function drawVideo(c) {
     var vw = video.videoWidth, vh = video.videoHeight, r = W / H, sx = 0, sy = 0, sw = vw, sh = vh;
     c.fillStyle = "#000"; c.fillRect(0, 0, W, H); if (!vw || !vh) return;
-    if (vw / vh > r) sw = vh * r; else sh = vw / r;
-    sw /= S.zoom; sh /= S.zoom; sx = (vw - sw) * S.focus / 100; sy = (vh - sh) * S.focusY / 100;
-    c.drawImage(video, sx, sy, sw, sh, 0, 0, W, H);
-    frameHint(vw, vh);
+    var sc = Math.max(W / vw, H / vh) * S.zoom, dw = vw * sc, dh = vh * sc;
+    c.drawImage(video, framePos(W, dw, S.focus), framePos(H, dh, S.focusY), dw, dh);
   }
   function drawCaption(c, text) {
     text = text.trim(); if (!text) return;
@@ -1404,7 +1402,17 @@ window.CutlineAdminStart = function () {
     });
     c.restore();
   }
-  function renderPreview() { if (S.mode === "sample") drawSample(pctx, S.t); else if (S.mode === "embed") pctx.clearRect(0, 0, W, H); else drawVideo(pctx); drawCaption(pctx, $("caption").value); }
+  function renderPreview() { if (S.mode === "sample") drawSample(pctx, S.t); else if (S.mode === "embed") drawEmbedCover(pctx); else drawVideo(pctx); drawCaption(pctx, $("caption").value); }
+  /* YouTube, Vimeo, and Twitch flash their own play button and title before a video starts.
+     A black screen covers the player until the video is really playing, then fades away. */
+  function drawEmbedCover(c) {
+    var now = performance.now(), a = !yt.clearAt || now < yt.clearAt ? 1 : 1 - (now - yt.clearAt) / 300;
+    c.clearRect(0, 0, W, H); if (a <= 0) return;
+    c.fillStyle = "rgba(0,0,0," + a + ")"; c.fillRect(0, 0, W, H);
+    if (a < .6) return;
+    c.save(); c.fillStyle = "rgba(255,255,255,.75)"; c.font = "600 34px Geist, Arial, sans-serif"; c.textAlign = "center"; c.textBaseline = "middle";
+    c.fillText(S.playing ? "Loading video..." : "Press Play to start", W / 2, H * .42); c.restore();
+  }
   function renderWave() {
     var r = track.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1); if (!r.width) return;
     if (wave.width !== Math.round(r.width * dpr)) { wave.width = Math.round(r.width * dpr); wave.height = Math.round(r.height * dpr); }
@@ -1536,7 +1544,7 @@ window.CutlineAdminStart = function () {
     renderWave(); renderPreview(); renderEditor(); renderEditStatus();
   }
   function seek(t) { S.t = clamp(t, 0, S.dur); if (S.mode === "video") { try { video.currentTime = S.t; } catch (e) {} } else if (S.mode === "embed") { embedCmd("seek", S.t); yt.t = S.t; yt.at = performance.now(); } }
-  function setPlaying(on) { S.playing = on; $("playBtn").textContent = on ? "Pause" : "Play"; if (S.mode === "embed") { yt.t = ytTime(); yt.at = performance.now(); yt.playing = on; embedCmd(on ? "play" : "pause"); } else if (S.mode === "video") { if (on) { var p = video.play(); if (p) p.catch(function () { setPlaying(false); }); } else video.pause(); } }
+  function setPlaying(on) { S.playing = on; $("playBtn").textContent = on ? "Pause" : "Play"; if (on && S.mode === "embed" && yt.kind === "twitch" && !yt.clearAt) yt.clearAt = performance.now() + 1500; if (S.mode === "embed") { yt.t = ytTime(); yt.at = performance.now(); yt.playing = on; embedCmd(on ? "play" : "pause"); } else if (S.mode === "video") { if (on) { var p = video.play(); if (p) p.catch(function () { setPlaying(false); }); } else video.pause(); } }
   video.addEventListener("seeked", renderPreview); video.addEventListener("loadeddata", renderPreview);
 
   function frame(now) {
@@ -1566,13 +1574,12 @@ window.CutlineAdminStart = function () {
 
   $("playBtn").addEventListener("click", function () { setPlaying(!S.playing); });
   $("caption").addEventListener("input", function () { clearResult(); renderPreview(); });
-  /* Framing: move left and right, up and down, and zoom in. A slider with no room to move says so. */
+  /* Framing: Zoom 100 fills the phone frame; lower shows the whole video with black space around it.
+     The two sliders move the video itself. Each reaches the video's edges, and at least half the frame either way. */
   S.focusY = 50; S.zoom = 1;
-  function frameHint(vw, vh) {
-    var wide = vw / vh > W / H, roomX = !wide ? S.zoom > 1.001 : true, roomY = wide ? S.zoom > 1.001 : true;
-    var msg = !roomY ? "Zoom in to move the frame up or down." : !roomX ? "Zoom in to move the frame left or right." : "";
-    if ($("frameHint").textContent !== msg) $("frameHint").textContent = msg;
-  }
+  function framePos(frame, size, slider) { var reach = Math.max(Math.abs(frame - size) / 2, frame / 2); return (frame - size) / 2 + (slider - 50) / 50 * reach; }
+  function setFrame(x, y, z) { S.focus = x; S.focusY = y; S.zoom = z / 100; $("focus").value = String(x); $("focusY").value = String(y); $("zoom").value = String(z); positionEmbed(); renderPreview(); }
+  $("frameReset").addEventListener("click", function () { clearResult(); setFrame(50, 50, 100); });
   function onFrame() { clearResult(); positionEmbed(); renderPreview(); }
   $("focus").addEventListener("input", function (e) { S.focus = +e.target.value; onFrame(); });
   $("focusY").addEventListener("input", function (e) { S.focusY = +e.target.value; onFrame(); });
@@ -1586,7 +1593,7 @@ window.CutlineAdminStart = function () {
   function clearDemoCaption() { var c = $("caption"); if (c.value === DEMO_CAPTION) { c.value = ""; c.dispatchEvent(new Event("input", { bubbles: true })); } }
   function setupVideo(label, src, isLink, scan) {
     video.muted = label === DEMO.label;
-    if (label !== DEMO.label) clearDemoCaption();
+    if (label !== DEMO.label) { clearDemoCaption(); setFrame(50, 50, 100); }
     setPlaying(false); clearResult(); clearEmbed(); status("Opening " + label + "...");
     if (video.src && video.src.indexOf("blob:") === 0) URL.revokeObjectURL(video.src);
     video.onerror = function () { status(isLink ? "That link didn't load. Paste a direct link to a video file, like one ending in .mp4, from a site that allows it." : "This browser can't play that file. Try an MP4 video."); };
@@ -1599,7 +1606,7 @@ window.CutlineAdminStart = function () {
   }
   /* The example video is a free Mixkit stock clip (Mixkit License, free for commercial use), served from /demo.mp4.
      It has no sound, so its hype moments are placed by hand. If it can't load, the drawn example stays. */
-  var DEMO = { label: "the example video", src: "demo.mp4", a: 1.5, b: 10.5, focus: 32, moments: [3.2, 8.6, 12.8] };
+  var DEMO = { label: "the example video", src: "demo.mp4", a: 1.5, b: 10.5, focus: 68, moments: [3.2, 8.6, 12.8] };
   function demoBins() {
     var o = [];
     for (var i = 0; i < BINS; i++) { var t = i / BINS * S.dur, v = .16 + .08 * Math.abs(Math.sin(i * 1.7)); DEMO.moments.forEach(function (m) { v += .72 * Math.exp(-Math.pow((t - m) / .9, 2)); }); o.push(clamp(v * (.75 + .25 * Math.abs(Math.sin(i * 12.9898))), .05, 1)); }
@@ -1608,7 +1615,7 @@ window.CutlineAdminStart = function () {
   function loadDemo() {
     setupVideo(DEMO.label, DEMO.src, true, function () {
       S.a = DEMO.a; S.b = DEMO.b; S.moments = DEMO.moments.slice(); S.bins = demoBins(); resetSegs();
-      S.focus = DEMO.focus; $("focus").value = String(DEMO.focus);
+      setFrame(DEMO.focus, 50, 100);
       renderMoments(); seek(S.a); layout();
       status("Drag the white edges to trim. Blue dots mark the hype moments.");
       if (!reduced) setPlaying(true);
@@ -1661,7 +1668,7 @@ window.CutlineAdminStart = function () {
 
   /* YouTube, Vimeo, and Twitch videos play in their own players inside the phone frame, controlled from the timeline and editor. */
   var NAMES_EMBED = { youtube: "YouTube", vimeo: "Vimeo", twitch: "Twitch" };
-  var yt = { kind: "", frame: null, player: null, ready: false, t: 0, at: 0, playing: false, href: "", start: 0, timer: null };
+  var yt = { kind: "", frame: null, player: null, ready: false, t: 0, at: 0, playing: false, href: "", start: 0, timer: null, clearAt: 0 };
   function post2(msg, origin) { if (yt.frame && yt.frame.contentWindow) yt.frame.contentWindow.postMessage(typeof msg === "string" ? msg : JSON.stringify(msg), origin); }
   function ytCmd(func, args) { post2({ event: "command", func: func, args: args || [], id: "cutline", channel: "widget" }, "*"); }
   /* YouTube can turn its own subtitles on by itself, from the video's or the viewer's settings. The editor keeps them off. */
@@ -1703,12 +1710,11 @@ window.CutlineAdminStart = function () {
   function positionEmbed() {
     var th = document.getElementById("twitchHolder"), el = yt.frame || (th && th.querySelector("iframe")); if (!el) return;
     var w = 316.05 * S.zoom, h = 100 * S.zoom;
-    el.style.width = w + "%"; el.style.height = h + "%"; el.style.left = (-(w - 100) * S.focus / 100) + "%"; el.style.top = (-(h - 100) * S.focusY / 100) + "%";
-    if (S.mode === "embed") frameHint(16, 9);
+    el.style.width = w + "%"; el.style.height = h + "%"; el.style.left = framePos(100, w, S.focus) + "%"; el.style.top = framePos(100, h, S.focusY) + "%";
   }
   function clearEmbed() {
     clearInterval(yt.timer); if (yt.frame) yt.frame.remove(); $("embedBox").textContent = "";
-    yt.frame = null; yt.player = null; yt.ready = false; yt.playing = false; yt.kind = "";
+    yt.frame = null; yt.player = null; yt.ready = false; yt.playing = false; yt.kind = ""; yt.clearAt = 0;
     $("embedBox").hidden = true; $("phone").classList.remove("embed-on");
   }
   function backToSample() {
@@ -1726,7 +1732,7 @@ window.CutlineAdminStart = function () {
     status(NAMES_EMBED[kind] + " didn't load here. Check the link. Some videos don't allow playing on other sites.");
   }
   async function loadEmbed(kind, id, start, href) {
-    setPlaying(false); clearResult(); clearEmbed(); video.pause(); clearDemoCaption();
+    setPlaying(false); clearResult(); clearEmbed(); video.pause(); clearDemoCaption(); setFrame(50, 50, 100);
     if (S.mode === "embed") backToSample();
     status("Loading the " + NAMES_EMBED[kind] + " video...");
     yt.kind = kind; yt.href = href; yt.start = start;
@@ -1747,7 +1753,7 @@ window.CutlineAdminStart = function () {
         f.src = "https://www.youtube.com/embed/" + id + "?enablejsapi=1&controls=0&playsinline=1&rel=0&disablekb=1&iv_load_policy=3&cc_load_policy=0" + origin;
         f.addEventListener("load", ytListen);
       } else {
-        f.src = "https://player.vimeo.com/video/" + id + (id.indexOf("?") > -1 ? "&" : "?") + "controls=0&playsinline=1&dnt=1&autopause=0";
+        f.src = "https://player.vimeo.com/video/" + id + (id.indexOf("?") > -1 ? "&" : "?") + "controls=0&playsinline=1&dnt=1&autopause=0&title=0&byline=0&portrait=0";
       }
       f.allow = "autoplay; encrypted-media; fullscreen"; f.referrerPolicy = "strict-origin-when-cross-origin"; f.title = NAMES_EMBED[kind] + " video"; f.tabIndex = -1;
       yt.frame = f; box.appendChild(f); positionEmbed();
@@ -1774,12 +1780,16 @@ window.CutlineAdminStart = function () {
     if (yt.kind === "youtube") {
       var info = d.info; if (!info || typeof info !== "object") return;
       if (typeof info.currentTime === "number") { yt.t = info.currentTime; yt.at = performance.now(); }
-      if (typeof info.playerState === "number") { var was = yt.playing; yt.playing = info.playerState === 1; if (yt.playing && !was) ytNoCaptions(); }
+      if (typeof info.playerState === "number") {
+        var was = yt.playing; yt.playing = info.playerState === 1; if (yt.playing && !was) ytNoCaptions();
+        if (yt.playing && !yt.clearAt) yt.clearAt = performance.now() + 700;
+        if (info.playerState === -1 || info.playerState === 0 || info.playerState === 5) { yt.clearAt = 0; renderPreview(); }
+      }
       if (!yt.ready && info.duration > 0) { yt.ready = true; onEmbedReady(info.duration); }
     } else if (yt.kind === "vimeo") {
       if (d.event === "ready") { vimeoCmd("addEventListener", "timeupdate"); vimeoCmd("addEventListener", "play"); vimeoCmd("addEventListener", "pause"); vimeoCmd("getDuration"); }
       else if (d.event === "timeupdate" && d.data) { yt.t = d.data.seconds; yt.at = performance.now(); if (!yt.ready && d.data.duration > 0) { yt.ready = true; onEmbedReady(d.data.duration); } }
-      else if (d.event === "play") { yt.playing = true; yt.at = performance.now(); }
+      else if (d.event === "play") { yt.playing = true; yt.at = performance.now(); if (!yt.clearAt) yt.clearAt = performance.now() + 500; }
       else if (d.event === "pause") yt.playing = false;
       else if (d.method === "getDuration" && d.value > 0 && !yt.ready) { yt.ready = true; onEmbedReady(d.value); }
     }
