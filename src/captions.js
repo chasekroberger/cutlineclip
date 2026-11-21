@@ -44,7 +44,8 @@ export async function makeCaptions(request, env, user) {
   if (!user.is_admin && used && used.n >= DAILY_LIMIT) return json({ ok: false, code: "limit", message: "You've used auto captions " + DAILY_LIMIT + " times today. Try again tomorrow." }, 429);
   let result;
   try {
-    result = await env.AI.run("@cf/openai/whisper-large-v3-turbo", { audio: toBase64(buf), task: "transcribe", vad_filter: true });
+    /* No voice detector here: it skipped quieter talking mixed with game sound and music. Whisper's own checks still skip silence. */
+    result = await env.AI.run("@cf/openai/whisper-large-v3-turbo", { audio: toBase64(buf), task: "transcribe", vad_filter: false, no_speech_threshold: 0.75, hallucination_silence_threshold: 2 });
   } catch (e) {
     console.error("Auto captions failed:", e && e.message);
     return json({ ok: false, message: "Auto captions couldn't hear this clip right now. Try again in a minute." }, 502);
