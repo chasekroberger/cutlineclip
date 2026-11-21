@@ -1626,7 +1626,7 @@ window.CutlineAdminStart = function () {
   $("focus").addEventListener("input", function (e) { S.focus = +e.target.value; onFrame(); });
   $("focusY").addEventListener("input", function (e) { S.focusY = +e.target.value; onFrame(); });
   $("zoom").addEventListener("input", function (e) { S.zoom = +e.target.value / 100; onFrame(); });
-  document.querySelectorAll(".chip").forEach(function (c) { c.addEventListener("click", function () { clearResult(); S.style = c.dataset.style; document.querySelectorAll(".chip").forEach(function (x) { x.setAttribute("aria-pressed", x === c ? "true" : "false"); }); renderPreview(); }); });
+  document.querySelectorAll(".chip[data-style]").forEach(function (c) { c.addEventListener("click", function () { clearResult(); S.style = c.dataset.style; document.querySelectorAll(".chip[data-style]").forEach(function (x) { x.setAttribute("aria-pressed", x === c ? "true" : "false"); }); renderPreview(); }); });
 
   /* Your own video */
   video.crossOrigin = "anonymous";
