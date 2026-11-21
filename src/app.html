@@ -809,7 +809,7 @@ html:not(.signed-in) .member-only { display: none !important; }
         </div>
         <form class="link-row" id="linkRow" hidden novalidate><input id="linkInput" type="url" inputmode="url" placeholder="Paste a YouTube, Twitch, Vimeo, Drive, or Dropbox link" aria-label="Video link"><button class="tool" type="submit">Load</button></form>
       </div>
-      <div><label class="lbl" for="caption">Caption</label><input id="caption" maxlength="70" value="When the squad finally clutches"></div>
+      <div><label class="lbl" for="caption">Caption</label><input id="caption" maxlength="70" value="When the squad finally clutches" placeholder="Add a caption (optional)"></div>
       <div>
         <span class="lbl" id="styleLabel">Caption style</span>
         <div class="row" role="group" aria-labelledby="styleLabel">
@@ -1559,8 +1559,12 @@ window.CutlineAdminStart = function () {
 
   /* Your own video */
   video.crossOrigin = "anonymous";
+  /* The example video's caption is only for the example. A new video starts with no caption, unless one was already typed. */
+  var DEMO_CAPTION = "When the squad finally clutches";
+  function clearDemoCaption() { var c = $("caption"); if (c.value === DEMO_CAPTION) { c.value = ""; c.dispatchEvent(new Event("input", { bubbles: true })); } }
   function setupVideo(label, src, isLink, scan) {
     video.muted = label === DEMO.label;
+    if (label !== DEMO.label) clearDemoCaption();
     setPlaying(false); clearResult(); clearEmbed(); status("Opening " + label + "...");
     if (video.src && video.src.indexOf("blob:") === 0) URL.revokeObjectURL(video.src);
     video.onerror = function () { status(isLink ? "That link didn't load. Paste a direct link to a video file, like one ending in .mp4, from a site that allows it." : "This browser can't play that file. Try an MP4 video."); };
@@ -1693,7 +1697,7 @@ window.CutlineAdminStart = function () {
     status(NAMES_EMBED[kind] + " didn't load here. Check the link. Some videos don't allow playing on other sites.");
   }
   async function loadEmbed(kind, id, start, href) {
-    setPlaying(false); clearResult(); clearEmbed(); video.pause();
+    setPlaying(false); clearResult(); clearEmbed(); video.pause(); clearDemoCaption();
     if (S.mode === "embed") backToSample();
     status("Loading the " + NAMES_EMBED[kind] + " video...");
     yt.kind = kind; yt.href = href; yt.start = start;
