@@ -114,6 +114,20 @@ h1 .l2 { text-align: right; background: var(--flare); -webkit-background-clip: t
 input[type=range] { width: 100%; height: 26px; accent-color: var(--pink); margin: 0; }
 .frame-row { display: grid; grid-template-columns: 92px minmax(0, 1fr); align-items: center; gap: 10px; font-size: 14px; color: var(--dim); }
 .frame-row + .frame-row { margin-top: 2px; }
+.caplook { margin-top: 12px; border: 1px solid var(--stroke); border-radius: 14px; padding: 4px 14px; }
+.caplook[open] { padding-bottom: 12px; }
+.caplook summary { cursor: pointer; padding: 9px 0; font-weight: 600; font-size: 14px; color: var(--text); }
+.cl-row { display: grid; gap: 6px; margin: 8px 0 10px; font-size: 14px; color: var(--dim); }
+.cl-fonts { display: flex; gap: 8px; }
+.fontbtn { flex: 1 1 0; min-height: 40px; border-radius: 10px; border: 1px solid var(--stroke); background: transparent; color: var(--text); font-size: 16px; text-transform: uppercase; cursor: pointer; }
+.fontbtn[aria-pressed=true] { background: var(--text); color: #0b0914; border-color: var(--text); }
+.swatches { display: flex; flex-wrap: wrap; gap: 8px; }
+.sw { width: 30px; height: 30px; border-radius: 50%; border: 2px solid rgba(255,255,255,.25); background: var(--c); cursor: pointer; padding: 0; position: relative; overflow: hidden; }
+.sw[aria-pressed=true] { box-shadow: 0 0 0 3px #0b0914, 0 0 0 5px var(--cyan); }
+.sw-pick { background: conic-gradient(#ff2e88, #ffe14d, #4ade80, #27e8f2, #8a5cff, #ff2e88); }
+.sw-pick input { position: absolute; inset: -8px; width: 46px; height: 46px; opacity: 0; cursor: pointer; }
+.cl-note { font-size: 12.5px; margin: 6px 0 4px; }
+.caplook .frame-row { grid-template-columns: 110px minmax(0, 1fr); }
 .autocap { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
 .autocap .chip { padding: 8px 14px; }
 .autocap .chip[aria-pressed=true] { background: var(--pink); border-color: var(--pink); color: #fff; }
@@ -828,6 +842,21 @@ html:not(.signed-in) .member-only { display: none !important; }
           <button class="chip" type="button" data-style="neon" aria-pressed="false">Neon</button>
           <button class="chip" type="button" data-style="box" aria-pressed="false">Box</button>
         </div>
+        <details class="caplook" id="capLook">
+          <summary>Caption look</summary>
+          <div class="cl-row"><span>Font</span><div class="row cl-fonts" role="group" aria-label="Caption font">
+            <button type="button" class="fontbtn" data-font="punch" aria-pressed="true" style="font-family:Anybody,'Arial Black',sans-serif;font-style:italic;font-weight:900">Punch</button>
+            <button type="button" class="fontbtn" data-font="clean" aria-pressed="false" style="font-family:Geist,Arial,sans-serif;font-weight:700">Clean</button>
+            <button type="button" class="fontbtn" data-font="classic" aria-pressed="false" style="font-family:Impact,'Arial Black',sans-serif">Classic</button>
+          </div></div>
+          <div class="cl-row"><span>Text color</span><div class="swatches" role="group" aria-label="Text color"><button type="button" class="sw" data-color="#ffffff" style="--c:#ffffff" aria-label="White"></button><button type="button" class="sw" data-color="#ffe14d" style="--c:#ffe14d" aria-label="Yellow"></button><button type="button" class="sw" data-color="#ff2e88" style="--c:#ff2e88" aria-label="Pink"></button><button type="button" class="sw" data-color="#27e8f2" style="--c:#27e8f2" aria-label="Blue"></button><button type="button" class="sw" data-color="#4ade80" style="--c:#4ade80" aria-label="Green"></button><button type="button" class="sw" data-color="#0b0914" style="--c:#0b0914" aria-label="Black"></button><label class="sw sw-pick" title="Pick any color"><input type="color" id="capColor" value="#ffffff" aria-label="Pick any text color"></label></div></div>
+          <div class="cl-row"><span>Highlight</span><div class="swatches" role="group" aria-label="Auto caption highlight color"><button type="button" class="sw" data-hi="#ffe14d" style="--c:#ffe14d" aria-label="Yellow"></button><button type="button" class="sw" data-hi="#ff2e88" style="--c:#ff2e88" aria-label="Pink"></button><button type="button" class="sw" data-hi="#27e8f2" style="--c:#27e8f2" aria-label="Blue"></button><button type="button" class="sw" data-hi="#4ade80" style="--c:#4ade80" aria-label="Green"></button><button type="button" class="sw" data-hi="#ff8a1f" style="--c:#ff8a1f" aria-label="Orange"></button><button type="button" class="sw" data-hi="#ffffff" style="--c:#ffffff" aria-label="White"></button><label class="sw sw-pick" title="Pick any color"><input type="color" id="capHi" value="#ffe14d" aria-label="Pick any highlight color"></label></div></div>
+          <label class="frame-row"><span>Size</span><input id="capSize" type="range" min="60" max="170" value="100"></label>
+          <label class="frame-row"><span>Caption height</span><input id="capY" type="range" min="8" max="92" value="62"></label>
+          <label class="frame-row"><span>Auto captions height</span><input id="capYAuto" type="range" min="8" max="92" value="76"></label>
+          <p class="note cl-note">Highlight is the color of the word being said in auto captions. Height: left is the top of the video.</p>
+          <button class="frame-reset" id="capReset" type="button">Reset caption look</button>
+        </details>
       </div>
       <div id="focusField" hidden>
         <span class="lbl">Frame position</span>
@@ -1394,38 +1423,70 @@ window.CutlineAdminStart = function () {
   }
   function drawCaption(c, text) {
     text = text.trim(); if (!text) return;
-    var size = 52, lines = [], line = "", family = '"Anybody", "Arial Black", Arial, sans-serif';
-    c.save(); c.font = "italic 900 " + size + "px " + family;
+    var size = Math.round(52 * S.cap.size), lines = [], line = "";
+    c.save(); c.font = capFont(size);
     text.toUpperCase().split(/\s+/).forEach(function (w) { var n = line ? line + " " + w : w; if (c.measureText(n).width > W - 70 && line) { lines.push(line); line = w; } else line = n; });
     if (line) lines.push(line);
-    while (lines.some(function (l) { return c.measureText(l).width > W - 40; }) && size > 24) { size -= 4; c.font = "italic 900 " + size + "px " + family; }
+    while (lines.some(function (l) { return c.measureText(l).width > W - 40; }) && size > 24) { size -= 4; c.font = capFont(size); }
     c.textAlign = "center"; c.textBaseline = "middle"; c.lineJoin = "round";
-    var lh = size * 1.16, y = H * .62 - (lines.length - 1) * lh / 2;
+    var lh = size * 1.16, y = H * S.cap.y / 100 - (lines.length - 1) * lh / 2;
+    y = clamp(y, lh / 2 + 24, H - 24 - lh / 2 - (lines.length - 1) * lh);
     lines.forEach(function (l, i) {
       var ly = y + i * lh;
-      if (S.style === "box") { var m = c.measureText(l).width + 26; c.fillStyle = "#fff"; c.fillRect(W / 2 - m / 2, ly - lh / 2, m, lh); c.fillStyle = "#0b0914"; c.fillText(l, W / 2, ly + 2); }
-      else if (S.style === "neon") { c.shadowColor = "#ff2e88"; c.shadowBlur = 26; c.fillStyle = "#27e8f2"; c.fillText(l, W / 2, ly); c.fillText(l, W / 2, ly); c.shadowBlur = 0; }
-      else { c.lineWidth = 13; c.strokeStyle = "#07060d"; c.strokeText(l, W / 2, ly); c.fillStyle = "#fff"; c.fillText(l, W / 2, ly); }
+      if (S.style === "box") { var m = c.measureText(l).width + 26; c.fillStyle = S.cap.color; c.fillRect(W / 2 - m / 2, ly - lh / 2, m, lh); c.fillStyle = inkOn(S.cap.color); c.fillText(l, W / 2, ly + 2); }
+      else if (S.style === "neon") { c.shadowColor = glowFor(S.cap.color); c.shadowBlur = 26; c.fillStyle = S.cap.color; c.fillText(l, W / 2, ly); c.fillText(l, W / 2, ly); c.shadowBlur = 0; }
+      else { c.lineWidth = Math.max(6, size / 4); c.strokeStyle = outlineFor(S.cap.color); c.strokeText(l, W / 2, ly); c.fillStyle = S.cap.color; c.fillText(l, W / 2, ly); }
     });
     c.restore();
   }
+  /* Caption look: font, colors, size, and height. Saved in this browser so the next clip looks the same. */
+  var CAP_DEFAULT = { font: "punch", color: "#ffffff", hi: "#ffe14d", size: 1, y: 62, yAuto: 76 };
+  S.cap = Object.assign({}, CAP_DEFAULT);
+  try { var savedCap = JSON.parse(localStorage.getItem("cutline_caption_look") || "null"); if (savedCap && typeof savedCap === "object") Object.keys(CAP_DEFAULT).forEach(function (k) { if (typeof savedCap[k] === typeof CAP_DEFAULT[k]) S.cap[k] = savedCap[k]; }); } catch (e) {}
+  function capFont(px) {
+    if (S.cap.font === "clean") return "800 " + px + 'px Geist, "Helvetica Neue", Arial, sans-serif';
+    if (S.cap.font === "classic") return px + 'px Impact, "Haettenschweiler", "Arial Narrow Bold", "Arial Black", sans-serif';
+    return "italic 900 " + px + 'px "Anybody", "Arial Black", Arial, sans-serif';
+  }
+  function lum(hex) { var n = parseInt(String(hex).replace("#", ""), 16); if (isNaN(n)) return 1; return (.299 * (n >> 16 & 255) + .587 * (n >> 8 & 255) + .114 * (n & 255)) / 255; }
+  function inkOn(hex) { return lum(hex) > .55 ? "#0b0914" : "#ffffff"; }
+  function outlineFor(hex) { return lum(hex) < .25 ? "#ffffff" : "#07060d"; }
+  function glowFor(hex) { return lum(hex) < .25 ? "#ffffff" : "#ff2e88"; }
+  function showCapLook() {
+    document.querySelectorAll(".fontbtn").forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.font === S.cap.font)); });
+    document.querySelectorAll(".sw[data-color]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.color === S.cap.color)); });
+    document.querySelectorAll(".sw[data-hi]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.hi === S.cap.hi)); });
+    $("capColor").value = S.cap.color; $("capHi").value = S.cap.hi; $("capSize").value = String(Math.round(S.cap.size * 100)); $("capY").value = String(S.cap.y); $("capYAuto").value = String(S.cap.yAuto);
+  }
+  function setCap(k, v) { S.cap[k] = v; try { localStorage.setItem("cutline_caption_look", JSON.stringify(S.cap)); } catch (e) {} showCapLook(); clearResult(); renderPreview(); }
+  document.querySelectorAll(".fontbtn").forEach(function (b) { b.addEventListener("click", function () { setCap("font", b.dataset.font); }); });
+  document.querySelectorAll(".sw[data-color]").forEach(function (b) { b.addEventListener("click", function () { setCap("color", b.dataset.color); }); });
+  document.querySelectorAll(".sw[data-hi]").forEach(function (b) { b.addEventListener("click", function () { setCap("hi", b.dataset.hi); }); });
+  $("capColor").addEventListener("input", function (e) { setCap("color", e.target.value); });
+  $("capHi").addEventListener("input", function (e) { setCap("hi", e.target.value); });
+  $("capSize").addEventListener("input", function (e) { setCap("size", +e.target.value / 100); });
+  $("capY").addEventListener("input", function (e) { setCap("y", +e.target.value); });
+  $("capYAuto").addEventListener("input", function (e) { setCap("yAuto", +e.target.value); });
+  $("capReset").addEventListener("click", function () { S.cap = Object.assign({}, CAP_DEFAULT); setCap("font", CAP_DEFAULT.font); });
+  if (document.fonts && document.fonts.load) document.fonts.load('italic 900 40px "Anybody"').then(function () { renderPreview(); }, function () {});
+  showCapLook();
   function renderPreview() { if (S.mode === "sample") drawSample(pctx, S.t); else if (S.mode === "embed") drawEmbedCover(pctx); else drawVideo(pctx); drawCaption(pctx, $("caption").value); if (S.mode === "video") drawAutoCaption(pctx, S.t); }
   /* Auto captions: up to 3 words at a time, timed to the talking, with the word being said highlighted. */
   function drawAutoCaption(c, t) {
     if (!S.autoCap || !S.chunks) return;
     var ch = null; for (var i = 0; i < S.chunks.length; i++) { if (t >= S.chunks[i].s - .05 && t < S.chunks[i].end) { ch = S.chunks[i]; break; } if (S.chunks[i].s > t) break; }
     if (!ch) return;
-    var size = 58, family = '"Anybody", "Arial Black", Arial, sans-serif', words = ch.words.map(function (w) { return w.w.toUpperCase(); });
-    c.save(); c.font = "italic 900 " + size + "px " + family; c.textBaseline = "middle"; c.lineJoin = "round"; c.textAlign = "left";
+    var size = Math.round(58 * S.cap.size), words = ch.words.map(function (w) { return w.w.toUpperCase(); });
+    c.save(); c.font = capFont(size); c.textBaseline = "middle"; c.lineJoin = "round"; c.textAlign = "left";
     var space = c.measureText(" ").width, total = function () { return words.reduce(function (n, w) { return n + c.measureText(w).width; }, 0) + space * (words.length - 1); };
-    while (total() > W - 60 && size > 26) { size -= 4; c.font = "italic 900 " + size + "px " + family; space = c.measureText(" ").width; }
-    var x = (W - total()) / 2, y = H * .76;
-    if (S.style === "box") { c.fillStyle = "#fff"; c.fillRect(x - 14, y - size * .62, total() + 28, size * 1.24); }
+    while (total() > W - 60 && size > 26) { size -= 4; c.font = capFont(size); space = c.measureText(" ").width; }
+    var x = (W - total()) / 2, y = clamp(H * S.cap.yAuto / 100, size * .62 + 24, H - 24 - size * .62);
+    if (S.style === "box") { c.fillStyle = S.cap.color; c.fillRect(x - 14, y - size * .62, total() + 28, size * 1.24); }
     ch.words.forEach(function (w, i) {
       var on = t >= w.s && t < Math.max(w.e, w.s + .12), text = words[i];
-      if (S.style === "box") { c.fillStyle = on ? "#ff2e88" : "#0b0914"; c.fillText(text, x, y + 2); }
-      else if (S.style === "neon") { c.shadowColor = "#ff2e88"; c.shadowBlur = 24; c.fillStyle = on ? "#fff" : "#27e8f2"; c.fillText(text, x, y); c.shadowBlur = 0; }
-      else { c.lineWidth = 13; c.strokeStyle = "#07060d"; c.strokeText(text, x, y); c.fillStyle = on ? "#ffe14d" : "#fff"; c.fillText(text, x, y); }
+      if (S.style === "box") { c.fillStyle = on ? (S.cap.hi.toLowerCase() === S.cap.color.toLowerCase() ? inkOn(S.cap.color) : S.cap.hi) : inkOn(S.cap.color); c.fillText(text, x, y + 2); }
+      else if (S.style === "neon") { c.shadowColor = glowFor(on ? S.cap.hi : S.cap.color); c.shadowBlur = 24; c.fillStyle = on ? S.cap.hi : S.cap.color; c.fillText(text, x, y); c.shadowBlur = 0; }
+      else { c.lineWidth = Math.max(6, size / 4); c.strokeStyle = outlineFor(on ? S.cap.hi : S.cap.color); c.strokeText(text, x, y); c.fillStyle = on ? S.cap.hi : S.cap.color; c.fillText(text, x, y); }
       x += c.measureText(text).width + space;
     });
     c.restore();
