@@ -598,6 +598,8 @@ h1 .l2 { background: linear-gradient(100deg, #C8155F, #5B3DF5); -webkit-backgrou
 .bill-toggle button[aria-pressed=true] { background: #ff2e88; color: #fff; }
 .bill-toggle .save { padding: 2px 8px; border-radius: 999px; background: #0a9a62; color: #fff; font-size: 12px; font-weight: 700; }
 .per-note { margin: -4px 0 0; font-size: 14px; }
+#pricing .plans.yearly { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 860px; margin-inline: auto; }
+@media (max-width: 760px) { #pricing .plans.yearly { grid-template-columns: minmax(0, 1fr); } }
 .per-note b { color: #0a9a62; }
 .plan.main .per-note b { color: #67E8F9; }
 .badge { position: absolute; top: -14px; left: 28px; padding: 4px 12px; border-radius: 999px; background: var(--pink); color: #fff; font-size: 13px; font-weight: 700; }
@@ -1023,7 +1025,7 @@ html:not(.signed-in) .member-only { display: none !important; }
     <div class="sec-head"><span class="eyebrow">Pricing</span><h2>Start free. Pay when it pays off.</h2><p>Every account gets 5 free clips. Cancel a plan any time.</p></div>
     <div class="bill-toggle" role="group" aria-label="How often you pay"><button type="button" data-bill="month" aria-pressed="true">Monthly</button><button type="button" data-bill="year" aria-pressed="false">Yearly <span class="save">Save up to 37%</span></button></div>
     <div class="plans">
-      <div class="plan"><h3>Free</h3><p class="sub">Try Cutline on your own videos</p><div class="price">$0</div><a class="btn btn-ghost" href="#studio">Make 5 clips free</a><ul><li>5 finished clips</li><li>Captions, cuts, and vertical reframing</li><li>No card needed</li></ul></div>
+      <div class="plan" data-bill-show="month"><h3>Free</h3><p class="sub">Try Cutline on your own videos</p><div class="price">$0</div><a class="btn btn-ghost" href="#studio">Make 5 clips free</a><ul><li>5 finished clips</li><li>Captions, cuts, and vertical reframing</li><li>No card needed</li></ul></div>
       <div class="plan main"><span class="badge">Recommended</span><h3>Solo</h3><p class="sub">For one clipper posting every day</p><div class="price"><span data-bill-show="month">$9.99 <small>per month</small></span><span data-bill-show="year" hidden>$79.99 <small>per year</small></span></div><p class="per-note" data-bill-show="year" hidden>Just $6.67 a month, paid once a year. <b>Save 33%</b></p><button class="btn btn-flare" type="button" data-plan="solo">Choose Solo</button><ul><li>100 clips a month</li><li>Captions, cuts, and vertical reframing</li><li>Auto upload to YouTube, Instagram, and TikTok when it launches</li></ul></div>
       <div class="plan"><h3>Pro</h3><p class="sub">For full-time clippers and small teams</p><div class="price"><span data-bill-show="month">$39.99 <small>per month</small></span><span data-bill-show="year" hidden>$299.99 <small>per year</small></span></div><p class="per-note" data-bill-show="year" hidden>Just $25 a month, paid once a year. <b>Save 37%</b></p><button class="btn btn-white" type="button" data-plan="pro">Choose Pro</button><ul><li>500 clips a month</li><li>Everything in Solo</li><li>Room for several campaigns at once</li></ul></div>
     </div>
@@ -2414,6 +2416,7 @@ window.CutlineAdminStart = function () {
     BILL = b.dataset.bill;
     document.querySelectorAll("[data-bill]").forEach(function (x) { x.setAttribute("aria-pressed", String(x === b)); });
     document.querySelectorAll("[data-bill-show]").forEach(function (x) { x.hidden = x.dataset.billShow !== BILL; });
+    document.querySelectorAll("#pricing .plans").forEach(function (x) { x.classList.toggle("yearly", BILL === "year"); });
   }); });
   document.querySelectorAll("[data-plan]").forEach(function (b) { b.addEventListener("click", async function () {
     if (Auth.mode === "server") {
