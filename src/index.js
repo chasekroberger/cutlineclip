@@ -34,6 +34,7 @@ export default {
   /* Runs every minute (see wrangler.jsonc) to post queued clips when their time comes. */
   async scheduled(event, env, ctx) {
     ctx.waitUntil(runQueue(env));
+    ctx.waitUntil(backfillPayments(env).catch(function (e) { backfillChecked = false; console.error("payments backfill", e && e.message); }));
   }
 };
 
@@ -500,8 +501,45 @@ async function fulfillCoins(env, session) {
   if (!user) { console.error("no account for checkout", session.id); return; }
   const coins = await coinsInSession(env, session.id);
   if (coins > 0) await env.DB.prepare("UPDATE users SET coins = coins + ? WHERE id = ?").bind(coins, user.id).run();
+  await recordPayment(env, session.id, user.id, "coins", session.amount_total, session.currency, coins + " coins", session.created);
 }
 
+/* Payments log: every charge and refund, so the admin sheet can show what each account has paid.
+   Ids are Stripe's own (checkout session, invoice, or "refund_" + charge), so a repeat event never counts twice. */
+async function recordPayment(env, id, userId, kind, cents, currency, note, createdSec) {
+  if (!id || !userId || typeof cents !== "number") return;
+  await env.DB.prepare("INSERT INTO payments (id, user_id, kind, amount_cents, currency, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET amount_cents = excluded.amount_cents, note = excluded.note")
+    .bind(id, userId, kind, Math.round(cents), String(currency || "usd").toLowerCase(), note || "", new Date((createdSec ? createdSec * 1000 : Date.now())).toISOString()).run();
+}
+
+/* One-time fill of the payments log from Stripe for purchases made before it existed. Runs from the cron. */
+let backfillChecked = false;
+async function backfillPayments(env) {
+  if (backfillChecked || !env.STRIPE_SECRET_KEY) return;
+  backfillChecked = true;
+  const done = await env.DB.prepare("SELECT value FROM settings WHERE key = 'payments_backfilled'").first();
+  if (done) return;
+  let after = null;
+  for (let page = 0; page < 20; page++) {
+    const list = await stripe(env, "checkout/sessions", Object.assign({ limit: 100, status: "complete" }, after ? { starting_after: after } : {}), "GET");
+    for (const s of list.data || []) {
+      if (s.payment_status !== "paid" || !s.customer) continue;
+      const user = await userForCustomer(env, s.customer, s.client_reference_id);
+      if (!user) continue;
+      if (s.mode === "payment") { let coins = 0; try { coins = await coinsInSession(env, s.id); } catch (e) {} await recordPayment(env, s.id, user.id, "coins", s.amount_total, s.currency, coins ? coins + " coins" : "Coins", s.created); }
+      else if (s.mode === "subscription") await recordPayment(env, s.invoice || s.id, user.id, "plan", s.amount_total, s.currency, "Plan start", s.created);
+    }
+    if (!list.has_more || !list.data.length) break;
+    after = list.data[list.data.length - 1].id;
+  }
+  await env.DB.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('payments_backfilled', ?)").bind(new Date().toISOString()).run();
+}
+
+function intervalFromSubscription(sub) {
+  const item = sub.items && sub.items.data && sub.items.data[0];
+  const c = item && item.price && CATALOG[item.price.lookup_key];
+  return (c && c.recurring) || (item && item.price && item.price.recurring && item.price.recurring.interval) || null;
+}
 function planFromSubscription(sub) {
   const item = sub.items && sub.items.data && sub.items.data[0];
   const c = item && item.price && CATALOG[item.price.lookup_key];
@@ -513,9 +551,9 @@ async function syncSubscription(env, sub) {
   if (!user) { console.error("no account for subscription", sub.id); return; }
   const plan = planFromSubscription(sub);
   if (["active", "trialing", "past_due"].indexOf(sub.status) > -1 && plan) {
-    await env.DB.prepare("UPDATE users SET plan = ?, stripe_subscription = ?, plan_used = CASE WHEN plan = 'free' THEN 0 ELSE plan_used END, plan_cycle_at = CASE WHEN plan = 'free' OR plan_cycle_at IS NULL THEN ? ELSE plan_cycle_at END WHERE id = ?").bind(plan, sub.id, Date.now(), user.id).run();
+    await env.DB.prepare("UPDATE users SET plan = ?, stripe_subscription = ?, plan_used = CASE WHEN plan = 'free' THEN 0 ELSE plan_used END, plan_cycle_at = CASE WHEN plan = 'free' OR plan_cycle_at IS NULL THEN ? ELSE plan_cycle_at END, plan_interval = ?, plan_renews_at = ? WHERE id = ?").bind(plan, sub.id, Date.now(), intervalFromSubscription(sub), sub.cancel_at_period_end ? null : (sub.items && sub.items.data && sub.items.data[0] && sub.items.data[0].current_period_end) || sub.current_period_end || null, user.id).run();
   } else if (["canceled", "unpaid", "incomplete_expired"].indexOf(sub.status) > -1 && user.stripe_subscription === sub.id) {
-    await env.DB.prepare("UPDATE users SET plan = 'free', stripe_subscription = NULL WHERE id = ?").bind(user.id).run();
+    await env.DB.prepare("UPDATE users SET plan = 'free', stripe_subscription = NULL, plan_interval = NULL, plan_renews_at = NULL WHERE id = ?").bind(user.id).run();
   }
 }
 
@@ -551,6 +589,10 @@ async function handleEvent(env, event) {
       break;
     case "invoice.paid":
       if (o.billing_reason === "subscription_cycle") await env.DB.prepare("UPDATE users SET plan_used = 0, plan_cycle_at = ? WHERE stripe_customer = ?").bind(Date.now(), o.customer).run();
+      if (o.amount_paid > 0) {
+        const payer = await userForCustomer(env, o.customer, null);
+        if (payer) await recordPayment(env, o.id, payer.id, "plan", o.amount_paid, o.currency, o.billing_reason === "subscription_cycle" ? "Plan renewal" : o.billing_reason === "subscription_update" ? "Plan change" : "Plan start", o.created);
+      }
       break;
     case "invoice.payment_failed":
       // Stripe retries the card and emails the customer. The plan stays on until the subscription ends.
@@ -558,6 +600,10 @@ async function handleEvent(env, event) {
       break;
     case "charge.refunded":
       if (o.refunded) await reverseCoins(env, o.payment_intent, "refund");
+      if (o.amount_refunded > 0) {
+        const refunded = await userForCustomer(env, o.customer, null);
+        if (refunded) await recordPayment(env, "refund_" + o.id, refunded.id, "refund", -o.amount_refunded, o.currency, o.refunded ? "Full refund" : "Partial refund", Math.floor(Date.now() / 1000));
+      }
       break;
     case "charge.dispute.created":
       await reverseCoins(env, o.payment_intent, "dispute");
