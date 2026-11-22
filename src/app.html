@@ -592,6 +592,14 @@ h1 .l2 { background: linear-gradient(100deg, #C8155F, #5B3DF5); -webkit-backgrou
 .plan.main { background: var(--text); color: #fff; border: 2px solid var(--pink); box-shadow: 0 24px 60px rgba(91,61,245,.22); }
 .plan.main .sub, .plan.main .price small { color: #C9C6DA; }
 .plan.main .btn-flare { background: var(--pink); }
+.bill-toggle { display: inline-flex; gap: 4px; padding: 4px; margin: 0 auto 22px; border-radius: 999px; border: 1px solid var(--stroke, rgba(0,0,0,.12)); background: rgba(127,127,127,.08); }
+#pricing .bill-toggle { display: flex; width: max-content; max-width: 100%; }
+.bill-toggle button { min-height: 42px; padding: 0 18px; border: 0; border-radius: 999px; background: none; font-weight: 650; font-size: 15px; color: inherit; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
+.bill-toggle button[aria-pressed=true] { background: #ff2e88; color: #fff; }
+.bill-toggle .save { padding: 2px 8px; border-radius: 999px; background: #0a9a62; color: #fff; font-size: 12px; font-weight: 700; }
+.per-note { margin: -4px 0 0; font-size: 14px; }
+.per-note b { color: #0a9a62; }
+.plan.main .per-note b { color: #67E8F9; }
 .badge { position: absolute; top: -14px; left: 28px; padding: 4px 12px; border-radius: 999px; background: var(--pink); color: #fff; font-size: 13px; font-weight: 700; }
 .price { font-family: var(--body); font-style: normal; font-weight: 750; font-size: 52px; letter-spacing: -.03em; }
 .plan ul { list-style: none; padding: 0; color: inherit; gap: 10px; font-size: 15.5px; }
@@ -1005,7 +1013,7 @@ html:not(.signed-in) .member-only { display: none !important; }
       <div class="field"><label for="approved">Views approved for payment <output id="approvedOut" for="approved"></output></label><input id="approved" type="range" min="10" max="100" step="5" value="70"></div>
       <div class="calc-two">
         <div class="field"><label for="rate">Pay per 1,000 views ($)</label><input id="rate" type="number" min="0" max="50" step="0.05" value="1.00"></div>
-        <div class="field"><label for="planCost">Cutline plan</label><select id="planCost"><option value="19.99">Solo, $19.99/mo</option><option value="49.99">Pro, $49.99/mo</option></select></div>
+        <div class="field"><label for="planCost">Cutline plan</label><select id="planCost"><option value="9.99">Solo, $9.99/mo</option><option value="39.99">Pro, $39.99/mo</option></select></div>
       </div>
       <div class="result" aria-live="polite"><div class="result-big" id="net"></div><p id="netDetail"></p></div>
     </div>
@@ -1013,18 +1021,19 @@ html:not(.signed-in) .member-only { display: none !important; }
 
   <section id="pricing" class="wrap">
     <div class="sec-head"><span class="eyebrow">Pricing</span><h2>Start free. Pay when it pays off.</h2><p>Every account gets 5 free clips. Cancel a plan any time.</p></div>
+    <div class="bill-toggle" role="group" aria-label="How often you pay"><button type="button" data-bill="month" aria-pressed="true">Monthly</button><button type="button" data-bill="year" aria-pressed="false">Yearly <span class="save">Save up to 37%</span></button></div>
     <div class="plans">
       <div class="plan"><h3>Free</h3><p class="sub">Try Cutline on your own videos</p><div class="price">$0</div><a class="btn btn-ghost" href="#studio">Make 5 clips free</a><ul><li>5 finished clips</li><li>Captions, cuts, and vertical reframing</li><li>No card needed</li></ul></div>
-      <div class="plan main"><span class="badge">Recommended</span><h3>Solo</h3><p class="sub">For one clipper posting every day</p><div class="price">$19.99 <small>per month</small></div><button class="btn btn-flare" type="button" data-plan="solo">Choose Solo</button><ul><li>100 clips a month</li><li>Captions, cuts, and vertical reframing</li><li>Auto upload to YouTube, Instagram, and TikTok when it launches</li></ul></div>
-      <div class="plan"><h3>Pro</h3><p class="sub">For full-time clippers and small teams</p><div class="price">$49.99 <small>per month</small></div><button class="btn btn-white" type="button" data-plan="pro">Choose Pro</button><ul><li>500 clips a month</li><li>Everything in Solo</li><li>Room for several campaigns at once</li></ul></div>
+      <div class="plan main"><span class="badge">Recommended</span><h3>Solo</h3><p class="sub">For one clipper posting every day</p><div class="price"><span data-bill-show="month">$9.99 <small>per month</small></span><span data-bill-show="year" hidden>$79.99 <small>per year</small></span></div><p class="per-note" data-bill-show="year" hidden>Just $6.67 a month, paid once a year. <b>Save 33%</b></p><button class="btn btn-flare" type="button" data-plan="solo">Choose Solo</button><ul><li>100 clips a month</li><li>Captions, cuts, and vertical reframing</li><li>Auto upload to YouTube, Instagram, and TikTok when it launches</li></ul></div>
+      <div class="plan"><h3>Pro</h3><p class="sub">For full-time clippers and small teams</p><div class="price"><span data-bill-show="month">$39.99 <small>per month</small></span><span data-bill-show="year" hidden>$299.99 <small>per year</small></span></div><p class="per-note" data-bill-show="year" hidden>Just $25 a month, paid once a year. <b>Save 37%</b></p><button class="btn btn-white" type="button" data-plan="pro">Choose Pro</button><ul><li>500 clips a month</li><li>Everything in Solo</li><li>Room for several campaigns at once</li></ul></div>
     </div>
     <p class="plan-status" id="planStatus" role="status"></p>
     <div class="coins-strip">
       <div><h3>Need a few more clips? Buy coins.</h3><p>1 coin makes 1 extra clip after your free or plan clips run out. Coins never expire.</p></div>
       <div class="coin-packs">
-        <button class="coin" type="button" data-pack="starter"><b>10 coins</b><span>$4.99</span></button>
-        <button class="coin" type="button" data-pack="creator"><b>50 coins</b><span>$19.99</span></button>
-        <button class="coin" type="button" data-pack="studio"><b>200 coins</b><span>$49.99</span></button>
+        <button class="coin" type="button" data-pack="starter"><b>20 coins</b><span>$4.99</span></button>
+        <button class="coin" type="button" data-pack="creator"><b>50 coins</b><span>$7.99</span></button>
+        <button class="coin" type="button" data-pack="studio"><b>200 coins</b><span>$19.99</span></button>
       </div>
       <p class="coin-status" id="coinStatus" role="status"></p>
     </div>
@@ -1065,14 +1074,14 @@ html:not(.signed-in) .member-only { display: none !important; }
   <h3 id="payTitle">You've used your 5 free clips</h3>
   <p id="payText">Choose a plan to keep exporting clips.</p>
   <div class="coin-packs">
-    <button class="coin" type="button" data-pack="starter"><b>10 coins</b><span>$4.99</span></button>
-    <button class="coin" type="button" data-pack="creator"><b>50 coins</b><span>$19.99</span></button>
-    <button class="coin" type="button" data-pack="studio"><b>200 coins</b><span>$49.99</span></button>
+    <button class="coin" type="button" data-pack="starter"><b>20 coins</b><span>$4.99</span></button>
+    <button class="coin" type="button" data-pack="creator"><b>50 coins</b><span>$7.99</span></button>
+    <button class="coin" type="button" data-pack="studio"><b>200 coins</b><span>$19.99</span></button>
   </div>
   <p class="or">Or choose a monthly plan</p>
   <div class="pay-plans">
-    <button class="btn btn-ghost" type="button" data-plan="solo">Solo, $19.99/month</button>
-    <button class="btn btn-ghost" type="button" data-plan="pro">Pro, $49.99/month</button>
+    <button class="btn btn-ghost" type="button" data-plan="solo">Solo, $9.99/month</button>
+    <button class="btn btn-ghost" type="button" data-plan="pro">Pro, $39.99/month</button>
   </div>
   <p id="payStatus" role="status"></p>
   <div class="pay-foot"><button class="linkish" id="resetFree" type="button" hidden>Reset free clips for testing</button><button class="linkish" id="payClose" type="button">Close</button></div>
@@ -2399,11 +2408,18 @@ window.CutlineAdminStart = function () {
     $("payStatus").textContent = ""; if (!$("payDialog").open) $("payDialog").showModal();
     $("resetFree").hidden = Auth.mode !== "preview";
   }
+  /* Monthly or yearly pricing. Yearly is Solo $79.99 (33% off) and Pro $299.99 (37% off). */
+  var BILL = "month";
+  document.querySelectorAll("[data-bill]").forEach(function (b) { b.addEventListener("click", function () {
+    BILL = b.dataset.bill;
+    document.querySelectorAll("[data-bill]").forEach(function (x) { x.setAttribute("aria-pressed", String(x === b)); });
+    document.querySelectorAll("[data-bill-show]").forEach(function (x) { x.hidden = x.dataset.billShow !== BILL; });
+  }); });
   document.querySelectorAll("[data-plan]").forEach(function (b) { b.addEventListener("click", async function () {
     if (Auth.mode === "server") {
       var el = b.closest("dialog") ? $("payStatus") : $("planStatus");
       el.textContent = paidPlan ? "Opening your billing page..." : "Opening checkout...";
-      var d = await Auth.post(paidPlan ? "/api/billing/portal" : "/api/plans/checkout", { plan: b.dataset.plan });
+      var d = await Auth.post(paidPlan ? "/api/billing/portal" : "/api/plans/checkout", { plan: b.dataset.plan, interval: b.closest("dialog") ? "month" : BILL });
       if (d.ok && d.url) { location.href = d.url; return; }
       el.textContent = d.message || "Checkout couldn't start. Try again.";
       return;

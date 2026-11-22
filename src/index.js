@@ -248,8 +248,20 @@ async function importSharedFile(request, url) {
 }
 
 /* ---------- Clips ---------- */
+/* Paid plans get their clips every 30 days, yearly plans included. */
+const CYCLE_MS = 30 * 864e5;
+async function refreshCycle(env, user) {
+  if (user.plan === "free") return;
+  const now = Date.now();
+  await env.DB.batch([
+    env.DB.prepare("UPDATE users SET plan_cycle_at = ? WHERE id = ? AND plan_cycle_at IS NULL").bind(now, user.id),
+    env.DB.prepare("UPDATE users SET plan_used = 0, plan_cycle_at = ? WHERE id = ? AND plan_cycle_at < ?").bind(now, user.id, now - CYCLE_MS)
+  ]);
+}
+
 async function claimClip(env, user) {
   let source = null;
+  await refreshCycle(env, user);
   if (isAdmin(user, env)) source = "admin";
   else if (user.plan !== "free" && PLAN_LIMITS[user.plan] && await bump(env, "UPDATE users SET plan_used = plan_used + 1 WHERE id = ? AND plan_used < ?", user.id, PLAN_LIMITS[user.plan])) source = "plan";
   else if (user.plan === "free" && await bump(env, "UPDATE users SET free_used = free_used + 1 WHERE id = ? AND free_used < ?", user.id, PLAN_LIMITS.free)) source = "free";
@@ -318,17 +330,21 @@ async function adminAction(env, me, action, body) {
    they're needed, so the Stripe catalog stays clean and the Customer Portal can switch plans. */
 const STRIPE_VERSION = "2026-10-28.endive";
 const CATALOG = {
-  cutline_solo_monthly: { name: "Cutline Solo", cents: 1999, recurring: true, plan: "solo" },
-  cutline_pro_monthly: { name: "Cutline Pro", cents: 4999, recurring: true, plan: "pro" },
-  cutline_coins_10: { name: "Cutline 10 coins", cents: 499, coins: 10, pack: "starter" },
-  cutline_coins_50: { name: "Cutline 50 coins", cents: 1999, coins: 50, pack: "creator" },
-  cutline_coins_200: { name: "Cutline 200 coins", cents: 4999, coins: 200, pack: "studio" }
+  cutline_solo_monthly: { name: "Cutline Solo", cents: 999, recurring: "month", plan: "solo" },
+  cutline_pro_monthly: { name: "Cutline Pro", cents: 3999, recurring: "month", plan: "pro" },
+  cutline_solo_yearly: { name: "Cutline Solo (yearly)", cents: 7999, recurring: "year", plan: "solo" },
+  cutline_pro_yearly: { name: "Cutline Pro (yearly)", cents: 29999, recurring: "year", plan: "pro" },
+  cutline_coins_20: { name: "Cutline 20 coins", cents: 499, coins: 20, pack: "starter" },
+  cutline_coins_50: { name: "Cutline 50 coins", cents: 799, coins: 50, pack: "creator" },
+  cutline_coins_200: { name: "Cutline 200 coins", cents: 1999, coins: 200, pack: "studio" },
+  // The old 10 coin pack, kept so refunds on earlier purchases still take the right number of coins back.
+  cutline_coins_10: { name: "Cutline 10 coins", cents: 499, coins: 10, retired: true }
 };
 // Managed Payments makes Stripe the merchant of record, so it handles sales tax, VAT and GST, fraud and disputes.
 // Every product needs a tax code that's eligible for it. This one is SaaS for business use.
 const TAX_CODE = "txcd_10103001";
-const PLAN_KEYS = { solo: "cutline_solo_monthly", pro: "cutline_pro_monthly" };
-const PACK_KEYS = { starter: "cutline_coins_10", creator: "cutline_coins_50", studio: "cutline_coins_200" };
+const PLAN_KEYS = { solo: { month: "cutline_solo_monthly", year: "cutline_solo_yearly" }, pro: { month: "cutline_pro_monthly", year: "cutline_pro_yearly" } };
+const PACK_KEYS = { starter: "cutline_coins_20", creator: "cutline_coins_50", studio: "cutline_coins_200" };
 const priceCache = {};
 
 async function stripe(env, path, params, method) {
@@ -349,10 +365,10 @@ async function priceFor(env, key) {
   const item = CATALOG[key];
   const found = await stripe(env, "prices", { lookup_keys: [key], active: "true", limit: 1 }, "GET");
   let price = found.data && found.data[0];
-  if (!price || price.unit_amount !== item.cents) {
+  if (!price || price.unit_amount !== item.cents || (item.recurring && (!price.recurring || price.recurring.interval !== item.recurring))) {
     // No price with this lookup key yet, or its amount is out of date. Reuse its product if there is one.
     const productId = price ? price.product : (await stripe(env, "products", { name: item.name, tax_code: TAX_CODE, metadata: { cutline_key: key } })).id;
-    price = await stripe(env, "prices", Object.assign({ product: productId, currency: "usd", unit_amount: item.cents, lookup_key: key, transfer_lookup_key: "true" }, item.recurring ? { recurring: { interval: "month" } } : {}));
+    price = await stripe(env, "prices", Object.assign({ product: productId, currency: "usd", unit_amount: item.cents, lookup_key: key, transfer_lookup_key: "true" }, item.recurring ? { recurring: { interval: item.recurring } } : {}));
   }
   priceCache[key] = price.id;
   return price.id;
@@ -400,7 +416,7 @@ const notReady = () => json({ ok: false, message: "Checkout isn't set up yet, so
 
 async function planCheckout(env, user, body, url) {
   if (!env.STRIPE_SECRET_KEY) return notReady();
-  const key = PLAN_KEYS[body.plan];
+  const key = PLAN_KEYS[body.plan] && PLAN_KEYS[body.plan][body.interval === "year" ? "year" : "month"];
   if (!key) return json({ ok: false, message: "Pick Solo or Pro." }, 400);
   if (user.plan !== "free" && user.stripe_subscription) return billingPortal(env, user, url);
   try {
@@ -490,7 +506,7 @@ async function syncSubscription(env, sub) {
   if (!user) { console.error("no account for subscription", sub.id); return; }
   const plan = planFromSubscription(sub);
   if (["active", "trialing", "past_due"].indexOf(sub.status) > -1 && plan) {
-    await env.DB.prepare("UPDATE users SET plan = ?, stripe_subscription = ?, plan_used = CASE WHEN plan = 'free' THEN 0 ELSE plan_used END WHERE id = ?").bind(plan, sub.id, user.id).run();
+    await env.DB.prepare("UPDATE users SET plan = ?, stripe_subscription = ?, plan_used = CASE WHEN plan = 'free' THEN 0 ELSE plan_used END, plan_cycle_at = CASE WHEN plan = 'free' OR plan_cycle_at IS NULL THEN ? ELSE plan_cycle_at END WHERE id = ?").bind(plan, sub.id, Date.now(), user.id).run();
   } else if (["canceled", "unpaid", "incomplete_expired"].indexOf(sub.status) > -1 && user.stripe_subscription === sub.id) {
     await env.DB.prepare("UPDATE users SET plan = 'free', stripe_subscription = NULL WHERE id = ?").bind(user.id).run();
   }
@@ -527,7 +543,7 @@ async function handleEvent(env, event) {
       await syncSubscription(env, o);
       break;
     case "invoice.paid":
-      if (o.billing_reason === "subscription_cycle") await env.DB.prepare("UPDATE users SET plan_used = 0 WHERE stripe_customer = ?").bind(o.customer).run();
+      if (o.billing_reason === "subscription_cycle") await env.DB.prepare("UPDATE users SET plan_used = 0, plan_cycle_at = ? WHERE stripe_customer = ?").bind(Date.now(), o.customer).run();
       break;
     case "invoice.payment_failed":
       // Stripe retries the card and emails the customer. The plan stays on until the subscription ends.
@@ -564,7 +580,7 @@ function cleanEmail(v) { const e = String(v || "").trim().toLowerCase(); return 
 function isAdmin(user, env) { return Boolean(user && (user.is_admin === 1 || (env.ADMIN_EMAIL && user.email === String(env.ADMIN_EMAIL).trim().toLowerCase()))); }
 function publicUser(u, env) {
   const admin = isAdmin(u, env), paid = u.plan !== "free";
-  return { email: u.email, plan: u.plan, role: admin ? "admin" : "user", clipsUsed: paid ? u.plan_used : u.free_used, clipLimit: admin ? null : (PLAN_LIMITS[u.plan] || 5), coins: u.coins };
+  return { email: u.email, plan: u.plan, role: admin ? "admin" : "user", clipsUsed: paid ? (u.plan_cycle_at && u.plan_cycle_at < Date.now() - CYCLE_MS ? 0 : u.plan_used) : u.free_used, clipLimit: admin ? null : (PLAN_LIMITS[u.plan] || 5), coins: u.coins };
 }
 function nowSec() { return Math.floor(Date.now() / 1000); }
 function getUserById(env, id) { return env.DB.prepare("SELECT * FROM users WHERE id = ?").bind(id).first(); }
