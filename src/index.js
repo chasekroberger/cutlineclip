@@ -332,8 +332,9 @@ const STRIPE_VERSION = "2026-10-28.endive";
 const CATALOG = {
   cutline_solo_monthly: { name: "Cutline Solo", cents: 999, recurring: "month", plan: "solo" },
   cutline_pro_monthly: { name: "Cutline Pro", cents: 3999, recurring: "month", plan: "pro" },
-  cutline_solo_yearly: { name: "Cutline Solo (yearly)", cents: 7999, recurring: "year", plan: "solo" },
-  cutline_pro_yearly: { name: "Cutline Pro (yearly)", cents: 29999, recurring: "year", plan: "pro" },
+  // Yearly prices live on the same product as the monthly one, as Stripe recommends for billing variants of one plan.
+  cutline_solo_yearly: { name: "Cutline Solo", cents: 7999, recurring: "year", plan: "solo", sameProductAs: "cutline_solo_monthly" },
+  cutline_pro_yearly: { name: "Cutline Pro", cents: 29999, recurring: "year", plan: "pro", sameProductAs: "cutline_pro_monthly" },
   cutline_coins_20: { name: "Cutline 20 coins", cents: 499, coins: 20, pack: "starter" },
   cutline_coins_50: { name: "Cutline 50 coins", cents: 799, coins: 50, pack: "creator" },
   cutline_coins_200: { name: "Cutline 200 coins", cents: 1999, coins: 200, pack: "studio" },
@@ -367,7 +368,13 @@ async function priceFor(env, key) {
   let price = found.data && found.data[0];
   if (!price || price.unit_amount !== item.cents || (item.recurring && (!price.recurring || price.recurring.interval !== item.recurring))) {
     // No price with this lookup key yet, or its amount is out of date. Reuse its product if there is one.
-    const productId = price ? price.product : (await stripe(env, "products", { name: item.name, tax_code: TAX_CODE, metadata: { cutline_key: key } })).id;
+    let productId = price ? price.product : null;
+    if (!productId && item.sameProductAs) {
+      await priceFor(env, item.sameProductAs);
+      const sib = await stripe(env, "prices", { lookup_keys: [item.sameProductAs], limit: 1 }, "GET");
+      productId = sib.data && sib.data[0] ? sib.data[0].product : null;
+    }
+    if (!productId) productId = (await stripe(env, "products", { name: item.name, tax_code: TAX_CODE, metadata: { cutline_key: key } })).id;
     price = await stripe(env, "prices", Object.assign({ product: productId, currency: "usd", unit_amount: item.cents, lookup_key: key, transfer_lookup_key: "true" }, item.recurring ? { recurring: { interval: item.recurring } } : {}));
   }
   priceCache[key] = price.id;
