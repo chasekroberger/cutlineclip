@@ -237,6 +237,8 @@ details p { margin-top: 8px; color: var(--dim); max-width: 60ch; }
 .cta-card > div > p { margin-top: 16px; font-size: 20px; line-height: 1.35; max-width: 27em; }
 .gate { min-height: 100vh; min-height: 100dvh; display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: clamp(28px, 6vw, 90px); align-items: center; padding-block: 32px; }
 .gate[hidden] { display: none; }
+.try-more { margin: 10px 0 0; font-size: 15px; font-weight: 600; }
+.try-more a { color: #ff2e88; }
 .gate .brand { margin-bottom: clamp(24px, 4vw, 44px); }
 .gate h1 { font-size: clamp(32px, 4.6vw, 72px); }
 .gate-pitch > p { margin-top: 24px; max-width: 30em; font-size: clamp(17px, 1.5vw, 21px); line-height: 1.38; color: #dedbef; }
@@ -816,6 +818,7 @@ html:not(.signed-in) .member-only { display: none !important; }
     <div class="nav-links">
       <a href="#features">Features</a><a href="#earnings">Earnings</a><a href="#pricing">Pricing</a><a href="#faq">FAQ</a>
       <!--ADMIN-START--><a class="admin-link" id="adminLink" href="#admin" hidden>Admin</a><!--ADMIN-END--><a class="coin-pill" id="coinPill" href="#pricing" aria-label="You have 0 coins. Buy more."><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="url(#coinG)"/><circle cx="12" cy="12" r="6.5" fill="none" stroke="#7a4b00" stroke-width="1.6" opacity=".55"/><path d="M12 8.4l1.1 2.3 2.5.3-1.85 1.7.5 2.5L12 14l-2.25 1.2.5-2.5L8.4 11l2.5-.3z" fill="#7a4b00" opacity=".7"/><defs><linearGradient id="coinG" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ffe27a"/><stop offset="1" stop-color="#f5a623"/></linearGradient></defs></svg><b id="coinCount">0</b><span class="coin-word" id="coinWord">coins</span></a><span class="acct" id="acctEmail"></span><button class="btn btn-ghost" id="logoutBtn" type="button">Log out</button>
+      <a class="btn btn-ghost" href="/editor">Full editor</a>
       <a class="btn btn-white" href="#studio">Make a free clip</a>
     </div>
   </nav>
@@ -830,7 +833,7 @@ html:not(.signed-in) .member-only { display: none !important; }
   <span class="tag"><i></i>Made for clippers</span>
   <h1><span class="l1">Streams in.</span><span class="l2">Clips out.</span></h1>
   <p>Drop in a long stream. Pick the best part. Post it everywhere. That's it.</p>
-  <div class="cta-row visitor-only"><a class="btn btn-flare btn-lg" href="#studio">Try it right here</a><a class="btn btn-ghost btn-lg" href="#signup">Make a free account</a></div>
+  <div class="cta-row visitor-only"><a class="btn btn-flare btn-lg" href="#studio">Try it right here</a><a class="btn btn-ghost btn-lg" href="/editor">Open the full editor</a></div>
   <p class="micro visitor-only">Free to start. No card. Nothing to download.</p>
 </header>
 <section class="try wrap" aria-labelledby="tryTitle">
@@ -841,6 +844,7 @@ html:not(.signed-in) .member-only { display: none !important; }
       <li><b>2</b>Drag the edges to trim and type a caption</li>
       <li><b>3</b>Hit Export clip, then queue it to post</li>
     </ol>
+    <p class="try-more">Want split screen, auto captions, hooks, and zooms? <a href="/editor">Open the full editor</a></p>
   </div>
   <div class="studio" id="studio">
     <div class="edit box">

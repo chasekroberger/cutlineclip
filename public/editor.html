@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cutline Editor</title>
+<meta name="description" content="The full Cutline editor for clippers: split screen layouts, auto captions, hooks, zooms, and 1080p export.">
+<meta name="robots" content="noindex">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anybody:ital,wdth,wght@1,100..150,800..900&family=Bangers&family=Geist:wght@400..700&family=Geist+Mono:wght@500&family=Montserrat:wght@800;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  color-scheme: dark;
+  --bg: #0b0a12; --panel: #0e0c16; --bar: #100e19; --line: rgba(255,255,255,.08); --stroke: rgba(255,255,255,.13);
+  --text: #f4f2ff; --dim: #a9a5c2; --faint: #8a86a6; --pink: #ff2e88; --pink-soft: #ff8fbd; --cyan: #27e8f2; --violet: #8a5cff; --ok: #7fe3b0;
+  --display: "Anybody", "Arial Black", sans-serif; --body: "Geist", system-ui, sans-serif; --mono: "Geist Mono", ui-monospace, monospace;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--bg); color: var(--text); font: 14px/1.45 var(--body); overflow: hidden; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+button:disabled { cursor: not-allowed; opacity: .45; }
+:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+a { color: var(--cyan); }
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 36px; padding: 0 13px; border-radius: 10px; border: 1px solid var(--stroke); background: rgba(255,255,255,.06); font-weight: 600; font-size: 13.5px; white-space: nowrap; text-decoration: none; color: var(--text); }
+.btn:hover:not(:disabled) { background: rgba(255,255,255,.12); }
+.btn.icon { width: 36px; padding: 0; }
+.btn.go { background: var(--pink); border-color: var(--pink); color: #fff; }
+.btn.go:hover:not(:disabled) { background: #ff4b99; }
+.btn.wide { width: 100%; }
+.chip { min-height: 34px; padding: 0 12px; border-radius: 9px; border: 1px solid var(--stroke); background: transparent; color: #d9d6ec; font-weight: 600; font-size: 13px; }
+.chip[aria-pressed=true] { background: var(--text); color: #14111f; border-color: var(--text); }
+.lbl { display: block; font-size: 11.5px; font-weight: 650; color: var(--dim); letter-spacing: .05em; text-transform: uppercase; margin: 0 0 8px; }
+.card { border: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.04); border-radius: 12px; }
+.note { font-size: 12.5px; color: var(--dim); margin: 0; }
+.kbd { display: inline-block; min-width: 18px; padding: 1px 5px; border-radius: 5px; border: 1px solid rgba(255,255,255,.2); font: 500 11px var(--mono); color: #cfcbe4; text-align: center; }
+select, input[type=text], input[type=url], input[type=number], textarea { min-height: 36px; border-radius: 9px; border: 1px solid rgba(255,255,255,.14); background: #17141f; padding: 0 10px; font-size: 13.5px; width: 100%; }
+textarea { padding: 8px 10px; resize: vertical; }
+input[type=range] { width: 100%; accent-color: var(--pink); margin: 0; }
+.switch { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 14px; }
+.switch input { appearance: none; width: 40px; height: 22px; border-radius: 999px; background: rgba(255,255,255,.18); position: relative; flex: none; cursor: pointer; margin: 0; }
+.switch input::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: left .15s; }
+.switch input:checked { background: var(--pink); }
+.switch input:checked::after { left: 21px; }
+.switch small { display: block; font-size: 12.5px; color: var(--dim); }
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.preset { display: flex; flex-direction: column; gap: 7px; align-items: center; padding: 10px 6px; border-radius: 12px; border: 1px solid var(--stroke); background: rgba(255,255,255,.03); font-weight: 600; font-size: 12.5px; line-height: 1.2; }
+.preset[aria-pressed=true] { border-color: var(--pink); background: rgba(255,46,136,.12); }
+.preset .sample { font-family: var(--display); font-style: italic; font-weight: 900; font-size: 15px; text-transform: uppercase; }
+
+/* Frame */
+.app { height: 100vh; height: 100dvh; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; }
+header.top { display: flex; align-items: center; gap: 12px 16px; padding: 9px 16px; border-bottom: 1px solid var(--line); background: var(--bar); flex-wrap: wrap; }
+.brand { display: inline-flex; align-items: center; gap: 8px; text-decoration: none; color: #fff; font-family: var(--display); font-style: italic; font-weight: 900; font-size: 19px; text-transform: uppercase; }
+.proj { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.proj b { font-weight: 600; font-size: 14.5px; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.saved { font-size: 12.5px; color: var(--ok); }
+.spacer { flex: 1; }
+.pill { display: inline-flex; align-items: center; gap: 7px; min-height: 36px; padding: 0 12px; border-radius: 999px; border: 1px solid rgba(255,214,102,.4); background: rgba(255,196,56,.1); font-weight: 650; font-size: 13.5px; white-space: nowrap; }
+.work { display: flex; min-height: 0; }
+aside.left { width: 270px; flex: none; border-right: 1px solid var(--line); background: var(--panel); padding: 14px; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; }
+main.stage { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 14px; background: radial-gradient(circle at 50% 40%, #1a1530, #0b0a12 70%); position: relative; }
+aside.right { width: 350px; flex: none; border-left: 1px solid var(--line); background: var(--panel); display: flex; flex-direction: column; min-height: 0; }
+.tabs { display: flex; border-bottom: 1px solid var(--line); padding: 0 6px; flex: none; }
+.tabs button { flex: 1; min-height: 44px; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--dim); font-weight: 600; font-size: 13px; }
+.tabs button[aria-selected=true] { color: #fff; border-bottom-color: var(--pink); }
+.panel { padding: 16px; display: flex; flex-direction: column; gap: 18px; overflow-y: auto; min-height: 0; flex: 1; }
+
+/* Left column */
+.source { padding: 12px; display: flex; gap: 12px; align-items: center; }
+.source .thumb { width: 64px; height: 38px; border-radius: 7px; background: #241f38; flex: none; object-fit: cover; }
+.source p { margin: 0; font-size: 13.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.source small { display: block; font-size: 12px; color: var(--dim); }
+.list { display: flex; flex-direction: column; gap: 6px; }
+.moment { display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 10px; }
+.moment button.jump { flex: 1; display: flex; align-items: center; gap: 10px; background: none; border: 0; padding: 4px 0; text-align: left; min-width: 0; }
+.moment .at { font-size: 12px; color: var(--cyan); width: 58px; flex: none; }
+.moment .score { font-size: 11.5px; font-weight: 700; padding: 3px 7px; border-radius: 6px; background: rgba(255,46,136,.16); color: var(--pink-soft); }
+.clipbtn { display: flex; align-items: center; gap: 10px; padding: 8px 10px; width: 100%; text-align: left; }
+.clipbtn[aria-pressed=true] { border-color: var(--pink); background: rgba(255,46,136,.1); }
+.clipbtn .bar { width: 6px; align-self: stretch; border-radius: 3px; background: #2a2440; flex: none; }
+.clipbtn[aria-pressed=true] .bar { background: var(--pink); }
+.clipbtn b { display: block; font-weight: 600; font-size: 13.5px; }
+.clipbtn small { display: block; font-size: 12px; color: var(--dim); }
+
+/* Stage */
+.stagebar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: center; }
+.screen { position: relative; height: min(64vh, 640px); aspect-ratio: 9 / 16; border-radius: 20px; overflow: hidden; background: #000; box-shadow: 0 24px 80px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.08); max-width: 100%; }
+.screen[data-aspect="1:1"] { aspect-ratio: 1 / 1; }
+.screen[data-aspect="4:5"] { aspect-ratio: 4 / 5; }
+.screen canvas { display: block; width: 100%; height: 100%; }
+.transport { display: flex; align-items: center; gap: 10px; }
+.play { width: 48px !important; min-height: 48px; border-radius: 50% !important; }
+.empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 24px; z-index: 5; background: radial-gradient(circle at 50% 40%, #1a1530, #0b0a12 70%); }
+.drop { width: min(560px, 100%); padding: 32px; border-radius: 22px; border: 2px dashed rgba(255,255,255,.18); text-align: center; display: grid; gap: 14px; justify-items: center; }
+.drop.over { border-color: var(--cyan); background: rgba(39,232,242,.06); }
+.drop h1 { margin: 0; font-family: var(--display); font-style: italic; font-weight: 900; font-size: 34px; text-transform: uppercase; line-height: 1; }
+.drop .row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; width: 100%; }
+.drop form { display: flex; gap: 8px; width: 100%; }
+.filepick { position: relative; overflow: hidden; }
+.filepick input { position: absolute; inset: 0; opacity: 0; cursor: pointer; font-size: 0; }
+.status { min-height: 20px; font-size: 13px; color: var(--text); text-align: center; max-width: 560px; }
+.toast { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); z-index: 6; padding: 10px 14px; border-radius: 12px; background: #1d1a2b; border: 1px solid var(--stroke); display: flex; gap: 10px; align-items: center; font-size: 13.5px; box-shadow: 0 10px 40px rgba(0,0,0,.5); max-width: calc(100% - 28px); }
+
+/* Crop editor */
+.cropbox { position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: 10px; overflow: hidden; background: #1b2840; touch-action: none; user-select: none; }
+.cropbox canvas { width: 100%; height: 100%; display: block; }
+.crop { position: absolute; border: 2px solid var(--pink); border-radius: 6px; background: rgba(255,46,136,.12); cursor: move; }
+.crop.game { border-color: var(--cyan); background: rgba(39,232,242,.08); }
+.crop span { position: absolute; left: 4px; top: 2px; font-size: 11px; font-weight: 700; color: var(--pink-soft); text-shadow: 0 1px 2px #000; pointer-events: none; }
+.crop.game span { color: var(--cyan); }
+.crop i { position: absolute; right: -7px; bottom: -7px; width: 14px; height: 14px; border-radius: 4px; background: #fff; cursor: nwse-resize; }
+
+/* Timeline */
+section.timeline { border-top: 1px solid var(--line); background: var(--bar); padding: 8px 16px 10px; }
+.tl-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-bottom: 8px; }
+.tl-tools .note { margin-left: 4px; }
+.srcstrip { position: relative; height: 26px; border-radius: 7px; background: #191526; margin: 0 0 8px 88px; touch-action: none; user-select: none; cursor: pointer; }
+.srcstrip canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.srcstrip .region { position: absolute; top: 0; bottom: 0; border: 2px solid #fff; border-radius: 6px; background: rgba(255,255,255,.12); cursor: grab; }
+.srcstrip .region b { position: absolute; top: -2px; bottom: -2px; width: 10px; background: #fff; cursor: ew-resize; }
+.srcstrip .region b.l { left: -8px; border-radius: 5px 0 0 5px; }
+.srcstrip .region b.r { right: -8px; border-radius: 0 5px 5px 0; }
+.srcstrip .other { position: absolute; top: 6px; bottom: 6px; border-radius: 4px; background: rgba(138,92,255,.45); pointer-events: none; }
+.srcstrip .dot { position: absolute; top: 50%; width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; border-radius: 50%; background: var(--cyan); pointer-events: none; }
+.tl { display: grid; grid-template-columns: 80px minmax(0, 1fr); column-gap: 8px; }
+.tl-names { display: grid; grid-template-rows: 18px 38px 24px 24px 20px; row-gap: 5px; font-size: 12px; color: var(--dim); font-weight: 600; align-items: center; }
+.tl-scroll { overflow-x: auto; overflow-y: hidden; }
+.tl-inner { position: relative; display: grid; grid-template-rows: 18px 38px 24px 24px 20px; row-gap: 5px; min-width: 100%; touch-action: none; user-select: none; }
+.ruler { position: relative; font: 500 10.5px var(--mono); color: var(--faint); cursor: pointer; }
+.ruler span { position: absolute; top: 2px; transform: translateX(-50%); white-space: nowrap; }
+.ruler span::before { content: ""; position: absolute; left: 50%; top: 13px; width: 1px; height: 4px; background: rgba(255,255,255,.25); }
+.track { position: relative; border-radius: 6px; background: rgba(255,255,255,.03); }
+.seg { position: absolute; top: 0; bottom: 0; border-radius: 7px; background: #3a2a5e; border: 1px solid #6a4fb0; overflow: hidden; }
+.seg canvas { position: absolute; inset: 0; width: 100%; height: 100%; opacity: .85; pointer-events: none; }
+.seg.cut { background: repeating-linear-gradient(135deg, rgba(255,46,136,.16) 0 6px, transparent 6px 12px); border: 1px dashed rgba(255,46,136,.6); }
+.seg.cut::after { content: "Cut"; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; color: var(--pink-soft); }
+.seg.sel { border: 2px solid var(--cyan); }
+.splitline { position: absolute; top: -3px; bottom: -3px; width: 10px; margin-left: -5px; cursor: ew-resize; z-index: 2; }
+.splitline::after { content: ""; position: absolute; left: 4px; top: 0; bottom: 0; width: 2px; border-radius: 1px; background: #fff; }
+.word { position: absolute; top: 2px; bottom: 2px; border-radius: 4px; background: rgba(255,46,136,.22); color: #ffc2da; font-size: 10.5px; font-weight: 600; display: flex; align-items: center; justify-content: center; overflow: hidden; white-space: nowrap; pointer-events: none; }
+.tblock { position: absolute; top: 0; bottom: 0; border-radius: 5px; background: #f4f2ff; color: #14111f; font-size: 11px; font-weight: 700; display: flex; align-items: center; padding: 0 8px; overflow: hidden; white-space: nowrap; cursor: grab; }
+.tblock.sel { box-shadow: 0 0 0 2px var(--cyan); }
+.tblock b { position: absolute; top: 0; bottom: 0; width: 8px; cursor: ew-resize; }
+.tblock b.l { left: 0; } .tblock b.r { right: 0; }
+.zdot { position: absolute; top: 4px; width: 12px; height: 12px; margin-left: -6px; transform: rotate(45deg); background: var(--cyan); border: 0; padding: 0; cursor: grab; }
+.zdot.sel { box-shadow: 0 0 0 3px #fff; }
+.playhead { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--cyan); box-shadow: 0 0 10px var(--cyan); pointer-events: none; z-index: 3; }
+.playhead::before { content: ""; position: absolute; top: -2px; left: -5px; border: 6px solid transparent; border-top-color: var(--cyan); }
+.shortcuts { margin: 6px 0 0; font-size: 12px; color: var(--faint); }
+.toosmall { display: none; }
+@media (max-width: 1100px) { aside.left { width: 230px; } aside.right { width: 310px; } }
+@media (max-width: 900px) {
+  body { overflow: auto; }
+  .app { height: auto; min-height: 100vh; }
+  .work { flex-wrap: wrap; }
+  aside.left, aside.right { width: 100%; border: 0; border-top: 1px solid var(--line); }
+  aside.left { order: 2; } main.stage { order: 1; width: 100%; } aside.right { order: 3; }
+  .toosmall { display: block; text-align: center; font-size: 12.5px; color: var(--dim); padding: 6px 12px; background: var(--bar); }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <a class="brand" href="/" aria-label="Cutline home"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path fill="#ff2e88" d="M9 2H2v20h7v-4H6V6h3z"/><path fill="#27e8f2" d="M15 2h7v20h-7v-4h3V6h-3z"/><rect x="11" width="2" height="24" fill="#fff"/></svg>Cutline</a>
+    <div class="proj"><span style="color:#6f6a8a">/</span><b id="projName">New project</b><span class="saved" id="savedNote"></span></div>
+    <div style="display:flex;gap:6px">
+      <button class="btn icon" id="undoBtn" type="button" aria-label="Undo" title="Undo (Ctrl or Cmd Z)" disabled><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg></button>
+      <button class="btn icon" id="redoBtn" type="button" aria-label="Redo" title="Redo (Shift Ctrl or Cmd Z)" disabled><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m15 14 5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h3"/></svg></button>
+    </div>
+    <div class="spacer"></div>
+    <span class="pill" id="allowance" hidden></span>
+    <a class="btn" id="loginLink" href="/#login" hidden>Log in</a>
+    <button class="btn" id="newVideoBtn" type="button" hidden>New video</button>
+    <button class="btn go" id="exportBtn" type="button" disabled style="min-height:40px;padding:0 18px;font-size:14.5px">Export clip <span id="exportRes" style="font-weight:500;opacity:.85;font-size:12.5px">1080×1920</span></button>
+  </header>
+  <p class="toosmall">The full editor works best on a computer.</p>
+
+  <div class="work">
+    <aside class="left" aria-label="Video and clips">
+      <div class="card source" id="sourceCard" hidden>
+        <video class="thumb" id="thumbVid" muted playsinline preload="metadata" aria-hidden="true"></video>
+        <div style="min-width:0"><p id="srcName"></p><small class="mono" id="srcMeta"></small></div>
+      </div>
+      <div id="momentsBox" hidden>
+        <div style="display:flex;justify-content:space-between;align-items:baseline"><span class="lbl">Hype moments</span><span class="note" id="momentCount"></span></div>
+        <div class="list" id="moments"></div>
+        <button class="btn wide" id="clipAllBtn" type="button" style="margin-top:8px">Make a clip from each</button>
+      </div>
+      <div id="clipsBox" hidden>
+        <span class="lbl">Clips in this project</span>
+        <div class="list" id="clips"></div>
+        <div class="grid2" style="margin-top:8px">
+          <button class="btn" id="newClipBtn" type="button">New clip</button>
+          <button class="btn" id="dupClipBtn" type="button">Duplicate</button>
+        </div>
+        <button class="btn wide" id="delClipBtn" type="button" style="margin-top:8px;color:var(--pink-soft)">Delete this clip</button>
+      </div>
+      <p class="note" id="leftEmpty">Load a video to find its hype moments and make clips.</p>
+    </aside>
+
+    <main class="stage">
+      <div class="stagebar">
+        <div role="group" aria-label="Clip shape" style="display:flex;gap:6px">
+          <button class="chip" type="button" data-aspect="9:16" aria-pressed="true">9:16</button>
+          <button class="chip" type="button" data-aspect="1:1" aria-pressed="false">1:1</button>
+          <button class="chip" type="button" data-aspect="4:5" aria-pressed="false">4:5</button>
+        </div>
+        <span style="width:8px"></span>
+        <button class="chip" type="button" id="safeBtn" aria-pressed="false" title="Shows where TikTok and Reels buttons cover your clip">Safe zones</button>
+      </div>
+      <div class="screen" id="screen" data-aspect="9:16"><canvas id="view" width="540" height="960" aria-label="Preview of your clip"></canvas></div>
+      <div class="transport">
+        <button class="btn icon" id="backBtn" type="button" aria-label="Back 1 second"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M11 19 4 12l7-7M20 19l-7-7 7-7"/></svg></button>
+        <button class="btn icon go play" id="playBtn" type="button" aria-label="Play"><svg id="playIcon" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg></button>
+        <button class="btn icon" id="fwdBtn" type="button" aria-label="Forward 1 second"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m13 19 7-7-7-7M4 19l7-7-7-7"/></svg></button>
+        <span class="mono" id="timeText" style="font-size:13.5px;color:#d9d6ec;margin-left:6px">0:00.0 / 0:00.0</span>
+      </div>
+      <p class="status" id="status" role="status"></p>
+
+      <div class="empty" id="empty">
+        <div class="drop" id="drop">
+          <h1>Drop a stream in</h1>
+          <p class="note" style="font-size:14px">Upload a video, or paste a Google Drive, Dropbox, or direct video link. It stays on your device unless you use a link.</p>
+          <div class="row">
+            <label class="btn go filepick" style="min-height:44px;padding:0 20px">Upload video<input id="fileInput" type="file" accept="video/*" aria-label="Upload video"></label>
+            <button class="btn" id="demoBtn" type="button" style="min-height:44px">Try the example video</button>
+          </div>
+          <form id="linkForm" novalidate><input id="linkInput" type="url" inputmode="url" placeholder="Paste a Drive, Dropbox, or video link" aria-label="Video link"><button class="btn" type="submit">Open</button></form>
+          <p class="status" id="emptyStatus" role="status"></p>
+        </div>
+      </div>
+      <div class="toast" id="toast" hidden></div>
+    </main>
+
+    <aside class="right" aria-label="Editing tools">
+      <div class="tabs" role="tablist">
+        <button type="button" role="tab" data-tab="captions" aria-selected="true">Captions</button>
+        <button type="button" role="tab" data-tab="layout" aria-selected="false">Layout</button>
+        <button type="button" role="tab" data-tab="text" aria-selected="false">Text</button>
+        <button type="button" role="tab" data-tab="zoom" aria-selected="false">Zoom</button>
+        <button type="button" role="tab" data-tab="audio" aria-selected="false">Audio</button>
+      </div>
+
+      <div class="panel" data-panel="captions">
+        <div class="switch"><span><b>Auto captions</b><small id="capNote">Word by word, timed to the speech</small></span><input type="checkbox" id="capOn" aria-label="Show auto captions"></div>
+        <button class="btn go wide" id="capGen" type="button">Make captions for this clip</button>
+        <div><span class="lbl">Style</span><div class="grid3" id="capStyles"></div></div>
+        <div><span class="lbl">Highlight color</span><div style="display:flex;gap:8px;flex-wrap:wrap" id="capColors"></div></div>
+        <div class="grid2">
+          <label><span class="lbl">Words at a time</span><select id="capPer"><option value="1">1</option><option value="2">2</option><option value="3" selected>3</option><option value="4">4</option></select></label>
+          <label><span class="lbl">Font</span><select id="capFont"><option value="anybody">Anybody</option><option value="montserrat">Montserrat</option><option value="bangers">Bangers</option></select></label>
+        </div>
+        <div><span class="lbl">Position</span><div style="display:flex;gap:6px" id="capPos"><button class="chip" type="button" data-pos="top" style="flex:1">Top</button><button class="chip" type="button" data-pos="middle" style="flex:1">Middle</button><button class="chip" type="button" data-pos="bottom" style="flex:1">Bottom</button></div></div>
+        <div><span class="lbl">Size <span id="capSizeText" class="mono" style="text-transform:none"></span></span><input type="range" id="capSize" min="60" max="150" value="100" aria-label="Caption size"></div>
+        <label class="switch"><span>All caps</span><input type="checkbox" id="capCaps" checked></label>
+        <label class="switch"><span>Shake on loud moments</span><input type="checkbox" id="capShake" checked></label>
+        <div>
+          <span class="lbl">Transcript</span>
+          <div class="list" id="transcript"></div>
+          <p class="note" id="transcriptNote">Make captions to see the words here. You can fix any word Cutline heard wrong.</p>
+        </div>
+      </div>
+
+      <div class="panel" data-panel="layout" hidden>
+        <div><span class="lbl">Layout</span><div class="grid2" id="layouts"></div></div>
+        <div id="cropArea">
+          <span class="lbl">Crop from your video</span>
+          <div class="cropbox" id="cropbox"><canvas id="cropCanvas" width="320" height="180"></canvas></div>
+          <p class="note" style="margin-top:8px">Drag each box over the right part of your video. Drag the white corner to resize. New clips use the same boxes.</p>
+        </div>
+        <div id="splitArea"><span class="lbl">Split <span class="mono" id="splitText" style="text-transform:none"></span></span><input type="range" id="splitRange" min="25" max="65" value="42" aria-label="Facecam height"></div>
+      </div>
+
+      <div class="panel" data-panel="text" hidden>
+        <div><span class="lbl">Quick adds</span><div style="display:flex;flex-wrap:wrap;gap:6px">
+          <button class="chip" type="button" data-quick="hook">Hook</button><button class="chip" type="button" data-quick="part2">Part 2?</button><button class="chip" type="button" data-quick="follow">Follow for more</button><button class="chip" type="button" data-quick="blank">Blank text</button>
+        </div></div>
+        <div class="list" id="textList"></div>
+        <div id="textEdit" class="card" style="padding:12px;display:grid;gap:12px" hidden>
+          <label><span class="lbl">Text</span><input type="text" id="txText" maxlength="80"></label>
+          <div class="grid2">
+            <div><span class="lbl">Starts</span><div style="display:flex;gap:6px"><span class="mono" id="txStart" style="flex:1;display:flex;align-items:center"></span><button class="btn" type="button" id="txStartHere" title="Start at the playhead">Here</button></div></div>
+            <div><span class="lbl">Ends</span><div style="display:flex;gap:6px"><span class="mono" id="txEnd" style="flex:1;display:flex;align-items:center"></span><button class="btn" type="button" id="txEndHere" title="End at the playhead">Here</button></div></div>
+          </div>
+          <div><span class="lbl">Position</span><div style="display:flex;gap:6px" id="txPos"><button class="chip" type="button" data-v="top" style="flex:1">Top</button><button class="chip" type="button" data-v="center" style="flex:1">Center</button><button class="chip" type="button" data-v="bottom" style="flex:1">Bottom</button></div></div>
+          <div><span class="lbl">Look</span><div style="display:flex;gap:6px;flex-wrap:wrap" id="txLook"><button class="chip" type="button" data-v="box">White box</button><button class="chip" type="button" data-v="pink">Pink box</button><button class="chip" type="button" data-v="plain">Outline</button></div></div>
+          <label><span class="lbl">Animation</span><select id="txAnim"><option value="pop">Pop in</option><option value="slide">Slide up</option><option value="type">Typewriter</option><option value="none">None</option></select></label>
+          <button class="btn" type="button" id="txDelete" style="color:var(--pink-soft)">Delete this text</button>
+        </div>
+        <label class="switch"><span>Progress bar<small>A thin bar along the bottom that fills as the clip plays</small></span><input type="checkbox" id="progressOn"></label>
+      </div>
+
+      <div class="panel" data-panel="zoom" hidden>
+        <button class="btn go wide" id="autoZoomBtn" type="button">Add zooms at the loud parts</button>
+        <p class="note">Cutline finds the biggest spikes in the audio and punches in on them.</p>
+        <div><span class="lbl">Zoom points</span><div class="list" id="zoomList"></div><p class="note" id="zoomEmpty">No zoom points yet.</p></div>
+        <button class="btn wide" id="addZoomBtn" type="button">Add zoom at the playhead <span class="kbd">Z</span></button>
+      </div>
+
+      <div class="panel" data-panel="audio" hidden>
+        <div><span class="lbl">Video sound <span class="mono" id="volText" style="text-transform:none"></span></span><input type="range" id="volRange" min="0" max="150" value="100" aria-label="Video sound volume"></div>
+        <label class="switch"><span>Cut low rumble<small>Takes out fan hum and desk thumps</small></span><input type="checkbox" id="audHp"></label>
+        <label class="switch"><span>Even out the volume<small>Quiet talking gets louder, yelling gets softer</small></span><input type="checkbox" id="audComp"></label>
+        <div class="card" style="padding:12px"><b style="font-weight:650">Music</b><p class="note" style="margin-top:4px">Royalty-free music is coming soon.</p></div>
+      </div>
+    </aside>
+  </div>
+
+  <section class="timeline" aria-label="Timeline">
+    <div class="tl-tools">
+      <button class="btn" id="splitBtn" type="button">Split <span class="kbd">S</span></button>
+      <button class="btn" id="cutBtn" type="button">Cut piece <span class="kbd">⌫</span></button>
+      <button class="btn" id="silenceBtn" type="button">Remove silences</button>
+      <button class="btn" id="resetCutsBtn" type="button">Undo all cuts</button>
+      <span class="note" id="tlNote"></span>
+      <span class="spacer"></span>
+      <label class="note" style="display:flex;align-items:center;gap:8px">Zoom<input type="range" id="tlZoom" min="1" max="8" value="1" step=".5" style="width:120px" aria-label="Timeline zoom"></label>
+    </div>
+    <div class="srcstrip" id="srcStrip" title="The whole video. Drag the white box to pick the part this clip uses."><canvas id="srcWave"></canvas></div>
+    <div class="tl">
+      <div class="tl-names"><span></span><span>Video</span><span>Captions</span><span>Text</span><span>Zoom</span></div>
+      <div class="tl-scroll" id="tlScroll">
+        <div class="tl-inner" id="tlInner">
+          <div class="ruler" id="ruler"></div>
+          <div class="track" id="trVideo"></div>
+          <div class="track" id="trCaps"></div>
+          <div class="track" id="trText"></div>
+          <div class="track" id="trZoom"></div>
+          <div class="playhead" id="playhead"></div>
+        </div>
+      </div>
+    </div>
+    <p class="shortcuts">Shortcuts: <span class="kbd">Space</span> play, <span class="kbd">S</span> split, <span class="kbd">⌫</span> cut or delete, <span class="kbd">Z</span> zoom point, <span class="kbd">T</span> text, <span class="kbd">I</span> <span class="kbd">O</span> clip start and end, <span class="kbd">J</span> <span class="kbd">L</span> 1 second, <span class="kbd">⌘Z</span> undo</p>
+  </section>
+</div>
+<video id="video" playsinline preload="auto" crossorigin="anonymous" hidden></video>
+<script src="/editor.js"></script>
+</body>
+</html>
