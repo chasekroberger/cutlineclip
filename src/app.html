@@ -551,6 +551,8 @@ h2 { font-family: var(--body); font-style: normal; font-stretch: normal; text-tr
 h1 .l1 { text-shadow: none; animation: none; }
 h1 .l2 { background: linear-gradient(100deg, #C8155F, #5B3DF5); -webkit-background-clip: text; background-clip: text; color: transparent; text-align: inherit; padding-right: .08em; }
 .pub-hero > p { max-width: 640px; font-size: clamp(18px, 2vw, 21px); line-height: 1.45; color: #4A4762; }
+/* The cover sentence stays on one line on computers and tablets. Phones are too narrow, so it wraps there. */
+@media (min-width: 640px) { .pub-hero > p:not(.micro) { max-width: none; white-space: nowrap; font-size: clamp(15px, 1.9vw, 21px); } }
 .pub-hero .micro { font-size: 14.5px; color: var(--dim); }
 .clips-row { max-width: 1240px; margin: 0 auto; padding: 8px var(--gutter) 64px; display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 16px; }
 .clip-card { margin: 0; display: grid; gap: 10px; }
