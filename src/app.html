@@ -128,6 +128,37 @@ input[type=range] { width: 100%; height: 26px; accent-color: var(--pink); margin
 .sw-pick input { position: absolute; inset: -8px; width: 46px; height: 46px; opacity: 0; cursor: pointer; }
 .cl-note { font-size: 12.5px; margin: 6px 0 4px; }
 .caplook .frame-row { grid-template-columns: 110px minmax(0, 1fr); }
+.autoclips h3 { font-size: 18px; }
+.autoclips .note { margin: 4px 0 10px; }
+.ac-label { display: block; font-size: 13.5px; font-weight: 600; color: var(--dim); margin: 8px 0 6px; }
+.ac-opts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.ac-opts.ac-len { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.ac-opt { display: grid; place-items: center; gap: 0; padding: 8px 4px; border-radius: 12px; border: 1px solid var(--stroke); background: rgba(255,255,255,.04); color: var(--text); cursor: pointer; }
+.ac-opt b { font-size: 20px; line-height: 1.1; }
+.ac-opt span { font-size: 12px; color: var(--dim); }
+.ac-opt[aria-checked=true] { border-color: var(--pink); background: rgba(255,46,136,.16); box-shadow: 0 0 0 1px var(--pink) inset; }
+.ac-count { display: grid; grid-template-columns: 48px minmax(0, 1fr) 48px; gap: 8px; }
+.ac-step { min-height: 46px; border-radius: 12px; border: 1px solid var(--stroke); background: rgba(255,255,255,.06); color: var(--text); font-size: 24px; font-weight: 700; cursor: pointer; }
+.ac-step:hover { background: rgba(255,255,255,.12); }
+.ac-count input { min-width: 0; text-align: center; font: inherit; font-size: 24px; font-weight: 800; color: var(--text); background: rgba(255,255,255,.04); border: 1px solid var(--stroke); border-radius: 12px; -moz-appearance: textfield; }
+.ac-count input::-webkit-inner-spin-button, .ac-count input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.ac-fit { font-size: 12.5px; color: var(--dim); margin: 6px 0 0; min-height: 1em; }
+.ac-filters { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.ac-filter { padding: 7px 12px; border-radius: 999px; border: 1px solid var(--stroke); background: transparent; color: var(--text); font-size: 13.5px; font-weight: 600; cursor: pointer; }
+.ac-filter[aria-pressed=true] { background: var(--pink); border-color: var(--pink); color: #fff; }
+.ac-filter[aria-pressed=true]::before { content: "\2713  "; }
+#acGo { width: 100%; }
+.ac-note { margin-top: 8px; font-size: 13px; }
+.ac-dialog { width: min(560px, calc(100vw - 24px)); }
+.ac-bar { height: 8px; border-radius: 4px; background: rgba(127,127,127,.2); overflow: hidden; margin: 10px 0 14px; }
+.ac-bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #ff2e88, #8a5cff); transition: width .3s; }
+.ac-list { list-style: none; margin: 12px 0; padding: 0; display: grid; gap: 8px; max-height: 46vh; overflow-y: auto; }
+.ac-list li { display: grid; grid-template-columns: 54px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 8px; border-radius: 12px; border: 1px solid rgba(127,127,127,.25); }
+.ac-list video, .ac-list .ac-ph { width: 54px; height: 96px; border-radius: 8px; background: #0b0914; object-fit: cover; }
+.ac-list b { display: block; font-size: 15px; }
+.ac-list small { color: #6b6785; font-size: 13px; }
+.ac-list .btn { min-height: 38px; padding: 6px 14px; }
+.ac-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
 .autocap { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
 .autocap .chip { padding: 8px 14px; }
 .autocap .chip[aria-pressed=true] { background: var(--pink); border-color: var(--pink); color: #fff; }
@@ -906,6 +937,29 @@ html:not(.signed-in) .member-only { display: none !important; }
     <div class="phone-wrap"><div class="phone" id="phone"><div class="embed" id="embedBox" hidden></div><canvas id="preview" width="720" height="1280" role="img" aria-label="Vertical preview of your clip with its caption"></canvas></div></div>
 
     <div class="side">
+      <div class="autoclips box" id="autoClips">
+        <h3>Auto clips</h3>
+        <p class="note">Don't want to edit? Pick how many, and Cutline finds the hype moments and makes the clips for you.</p>
+        <span class="ac-label" id="acCountLbl">How many clips</span>
+        <div class="ac-count" role="group" aria-labelledby="acCountLbl">
+          <button type="button" class="ac-step" id="acMinus" aria-label="One less clip">&minus;</button>
+          <input id="acCount" type="number" inputmode="numeric" min="1" max="50" value="5" aria-label="Number of clips">
+          <button type="button" class="ac-step" id="acPlus" aria-label="One more clip">+</button>
+        </div>
+        <p class="ac-fit" id="acFit"></p>
+        <span class="ac-label" id="acLenLbl">Clip length</span>
+        <div class="ac-opts ac-len" role="radiogroup" aria-labelledby="acLenLbl"><button type="button" class="ac-opt" data-len="15" role="radio" aria-checked="false"><b>15</b><span>sec</span></button><button type="button" class="ac-opt" data-len="30" role="radio" aria-checked="true"><b>30</b><span>sec</span></button><button type="button" class="ac-opt" data-len="45" role="radio" aria-checked="false"><b>45</b><span>sec</span></button><button type="button" class="ac-opt" data-len="60" role="radio" aria-checked="false"><b>60</b><span>sec</span></button></div>
+        <span class="ac-label" id="acFiltLbl">Filters</span>
+        <div class="ac-filters" role="group" aria-labelledby="acFiltLbl">
+          <button type="button" class="ac-filter" data-filter="captions" aria-pressed="true">Auto captions</button>
+          <button type="button" class="ac-filter" data-filter="hook" aria-pressed="false">My caption on every clip</button>
+          <button type="button" class="ac-filter" data-filter="quiet" aria-pressed="false">Cut quiet parts</button>
+          <button type="button" class="ac-filter" data-filter="framing" aria-pressed="true">Use my framing</button>
+          <button type="button" class="ac-filter" data-filter="order" aria-pressed="false">Keep video order</button>
+        </div>
+        <button class="btn btn-flare" id="acGo" type="button">Make 5 clips</button>
+        <p class="note ac-note" id="acNote">Each clip uses 1 of your clips.</p>
+      </div>
       <div class="export box">
         <h3>Your clip</h3>
         <p class="clip-time"><span id="clipLen">0:24</span> long, starts at <span id="clipAt">1:24</span></p>
@@ -1072,6 +1126,19 @@ html:not(.signed-in) .member-only { display: none !important; }
 </div>
 
 <!--APP-START-->
+<dialog id="acDialog" class="ac-dialog" aria-labelledby="acTitle">
+  <h3 id="acTitle">Making your clips</h3>
+  <p id="acStatus" role="status">Getting started...</p>
+  <div class="ac-bar" aria-hidden="true"><i id="acFill"></i></div>
+  <div class="name-row"><label class="plabel" for="acName">Name files</label><div class="name-field"><input id="acName" maxlength="60" placeholder="Name File" autocomplete="off" spellcheck="false"><span id="acExt">01.mp4</span></div></div>
+  <ol class="ac-list" id="acList"></ol>
+  <div class="ac-actions">
+    <button class="btn btn-flare" id="acSaveAll" type="button" disabled>Save all (ZIP)</button>
+    <button class="btn btn-ghost" id="acStop" type="button">Stop</button>
+    <button class="btn btn-ghost" id="acClose" type="button" hidden>Close</button>
+  </div>
+  <p class="note">Keep this tab open while the clips are made. It takes about as long as the clips play.</p>
+</dialog>
 <dialog id="payDialog" aria-labelledby="payTitle">
   <h3 id="payTitle">You've used your 5 free clips</h3>
   <p id="payText">Choose a plan to keep exporting clips.</p>
@@ -1298,7 +1365,7 @@ window.CutlineAuth = (function () {
   /* Visitors can try the editor. Exporting, connecting accounts, plans, and coins go to sign up first. */
   document.addEventListener("click", function (e) {
     if (signedIn()) return;
-    var t = e.target.closest && e.target.closest('[data-plan], [data-pack], #exportBtn, #postBtn, #accts button, #autoCapBtn');
+    var t = e.target.closest && e.target.closest('[data-plan], [data-pack], #exportBtn, #postBtn, #accts button, #autoCapBtn, #acGo');
     if (!t) return; e.preventDefault(); e.stopImmediatePropagation();
     if (t.closest("#studio")) { try { sessionStorage.setItem("cutline_try_caption", $("caption").value); } catch (x) {} }
     location.hash = "signup";
@@ -1680,7 +1747,7 @@ window.CutlineAdminStart = function () {
     region.style.left = (S.a / S.dur * 100) + "%"; region.style.width = ((S.b - S.a) / S.dur * 100) + "%"; playhead.style.left = (S.t / S.dur * 100) + "%";
     $("clipLen").textContent = fmt(keptLength()); $("clipAt").textContent = fmt(S.a);
     [["hIn", S.a], ["hOut", S.b]].forEach(function (x) { var h = $(x[0]); h.setAttribute("aria-valuemax", Math.round(S.dur)); h.setAttribute("aria-valuenow", Math.round(x[1])); h.setAttribute("aria-valuetext", fmt(x[1])); });
-    renderWave(); renderPreview(); renderEditor(); renderEditStatus();
+    renderWave(); renderPreview(); renderEditor(); renderEditStatus(); if (typeof AUTO === "object" && AUTO) acLabel();
   }
   function seek(t) { S.t = clamp(t, 0, S.dur); if (S.mode === "video") { try { video.currentTime = S.t; } catch (e) {} } else if (S.mode === "embed") { embedCmd("seek", S.t); yt.t = S.t; yt.at = performance.now(); } }
   function setPlaying(on) { S.playing = on; $("playBtn").textContent = on ? "Pause" : "Play"; if (on && S.mode === "embed" && yt.kind === "twitch" && !yt.clearAt) yt.clearAt = performance.now() + 1500; if (S.mode === "embed") { yt.t = ytTime(); yt.at = performance.now(); yt.playing = on; embedCmd(on ? "play" : "pause"); } else if (S.mode === "video") { if (on) { var p = video.play(); if (p) p.catch(function () { setPlaying(false); }); } else video.pause(); } }
@@ -1766,7 +1833,7 @@ window.CutlineAdminStart = function () {
      which turns speech into timed words. YouTube, Vimeo, and Twitch don't share their sound, so they can't be captioned. */
   S.words = null; S.chunks = null; S.autoCap = false; S.capRange = null;
   function setAutoCapUI(note) { $("autoCapBtn").setAttribute("aria-pressed", String(S.autoCap)); if (note !== undefined) $("autoCapNote").textContent = note; }
-  function resetAutoCap() { S.words = null; S.chunks = null; S.autoCap = false; S.capRange = null; setAutoCapUI("Words show up as people talk."); }
+  function resetAutoCap() { S.words = null; S.chunks = null; S.autoCap = false; S.capRange = null; S.audioCache = null; S.srcBlob = null; setAutoCapUI("Words show up as people talk."); }
   function chunkWords(words) {
     var out = [], cur = [];
     words.forEach(function (w, i) {
@@ -1779,7 +1846,8 @@ window.CutlineAdminStart = function () {
   }
   async function clipWav(blob, a, b) {
     var AC = window.OfflineAudioContext || window.webkitOfflineAudioContext, rate = 16000;
-    var audio = await new AC(1, rate, rate).decodeAudioData(await blob.arrayBuffer());
+    var audio = S.audioCache && S.audioCache.blob === blob ? S.audioCache.audio : await new AC(1, rate, rate).decodeAudioData(await blob.arrayBuffer());
+    S.audioCache = { blob: blob, audio: audio };
     var s0 = Math.max(0, Math.floor(a * audio.sampleRate)), s1 = Math.min(audio.length, Math.ceil(b * audio.sampleRate)), n = Math.max(0, s1 - s0);
     var mix = new Float32Array(n);
     for (var ch = 0; ch < audio.numberOfChannels; ch++) { var d = audio.getChannelData(ch); for (var i = 0; i < n; i++) mix[i] += d[s0 + i] / audio.numberOfChannels; }
@@ -1800,6 +1868,15 @@ window.CutlineAdminStart = function () {
     for (i = 0; i < n; i++) out.setInt16(44 + i * 2, Math.max(-1, Math.min(1, mix[i])) * 32767, true);
     return new Blob([out.buffer], { type: "audio/wav" });
   }
+  /* Gets timed words for part of the video. Used by the Auto captions button and by Auto clips. */
+  async function fetchCaptions(a, b) {
+    if (!S.srcBlob) S.srcBlob = S.srcFile || await (await fetch(S.srcUrl, { credentials: "same-origin" })).blob();
+    var wav = await clipWav(S.srcBlob, a, b);
+    var r = await fetch("/api/captions", { method: "POST", headers: { "Content-Type": "audio/wav" }, body: wav, credentials: "same-origin" }), d = {};
+    try { d = await r.json(); } catch (e) {}
+    if (!r.ok || !d.ok) return { ok: false, message: d.message || "Auto captions didn't work this time. Try again." };
+    return { ok: true, words: (d.words || []).map(function (w) { return { w: String(w.w), s: +w.s + a, e: +w.e + a }; }) };
+  }
   $("autoCapBtn").addEventListener("click", async function () {
     if (S.exporting) return;
     if (S.autoCap) { S.autoCap = false; setAutoCapUI("Auto captions are off."); clearResult(); renderPreview(); return; }
@@ -1811,13 +1888,10 @@ window.CutlineAdminStart = function () {
     if (Auth.mode !== "server") { status("Auto captions work once your site is live."); return; }
     var btn = $("autoCapBtn"); btn.disabled = true; setAutoCapUI("Listening to your clip..."); status("Listening to your clip. This takes a few seconds.");
     try {
-      var blob = S.srcFile || await (await fetch(S.srcUrl, { credentials: "same-origin" })).blob();
-      var wav = await clipWav(blob, a, b);
-      var r = await fetch("/api/captions", { method: "POST", headers: { "Content-Type": "audio/wav" }, body: wav, credentials: "same-origin" }), d = {};
-      try { d = await r.json(); } catch (e) {}
-      if (!r.ok || !d.ok) { setAutoCapUI("Words show up as people talk."); status(d.message || "Auto captions didn't work this time. Try again."); return; }
-      if (!d.words || !d.words.length) { setAutoCapUI("No talking found."); status("Cutline didn't hear any talking in this clip."); return; }
-      S.words = d.words.map(function (w) { return { w: String(w.w), s: +w.s + a, e: +w.e + a }; });
+      var d = await fetchCaptions(a, b);
+      if (!d.ok) { setAutoCapUI("Words show up as people talk."); status(d.message); return; }
+      if (!d.words.length) { setAutoCapUI("No talking found."); status("Cutline didn't hear any talking in this clip."); return; }
+      S.words = d.words;
       S.chunks = chunkWords(S.words); S.capRange = [a, b]; S.autoCap = true; clearResult();
       setAutoCapUI("Auto captions are on. Changed the clip? Tap twice to redo them.");
       status("Auto captions added. Press Play to watch them follow along."); renderPreview();
@@ -1935,7 +2009,7 @@ window.CutlineAdminStart = function () {
   }
   function failEmbed(kind) {
     clearEmbed(); if (S.mode === "embed") backToSample();
-    status(NAMES_EMBED[kind] + " didn't load here. Check the link. Some videos don't allow playing on other sites.");
+    status(NAMES_EMBED[kind] + " didn't load here. Some videos don't allow playing on other sites, and live streams that are still going can't be cut. If you have permission to use it, download the video and select Upload video instead.");
   }
   async function loadEmbed(kind, id, start, href) {
     setPlaying(false); clearResult(); clearEmbed(); video.pause(); clearDemoCaption(); setFrame(50, 50, 100); resetAutoCap();
@@ -1987,6 +2061,14 @@ window.CutlineAdminStart = function () {
     var d = e.data; if (typeof d === "string") { try { d = JSON.parse(d); } catch (err) { return; } }
     if (!d || typeof d !== "object") return;
     if (yt.kind === "youtube") {
+      /* YouTube reports why a video can't play. Without this the black cover would hide YouTube's own error. */
+      if (d.event === "onError") {
+        var code = Number(d.info), why = code === 101 || code === 150 || code === 153 ? "The owner of this YouTube video doesn't let it play on other sites."
+          : code === 100 ? "This YouTube video is private, removed, or age-restricted."
+          : code === 2 ? "That YouTube link isn't complete. Copy it again from the Share button."
+          : "YouTube couldn't play this video here.";
+        clearEmbed(); backToSample(); status(why + " If you have permission to use it, download the video and select Upload video instead."); return;
+      }
       var info = d.info; if (!info || typeof info !== "object") return;
       if (typeof info.currentTime === "number") { yt.t = info.currentTime; yt.at = performance.now(); }
       if (typeof info.playerState === "number") {
@@ -2098,6 +2180,152 @@ window.CutlineAdminStart = function () {
     } catch (err) { endExportUI(); releaseClaim(); S.playing = false; status("Export failed. Try a shorter clip or the latest Chrome."); }
   }
   $("exportBtn").addEventListener("click", startExport);
+
+  /* Auto clips: Cutline picks the loudest parts of the video, then exports them one after another. */
+  var AUTO = { count: 5, len: 30, running: false, stop: false, clips: [], f: { captions: true, hook: false, quiet: false, framing: true, order: false } };
+  function acFits() { return S.mode === "video" && S.dur >= MIN_CLIP ? Math.max(1, Math.floor(S.dur / Math.min(AUTO.len, S.dur) + .05)) : 0; }
+  function acLabel() {
+    $("acGo").textContent = "Make " + AUTO.count + " clip" + (AUTO.count === 1 ? "" : "s"); $("acCount").value = String(AUTO.count);
+    var fits = acFits(); $("acFit").textContent = fits ? "This video fits up to " + fits + " clip" + (fits === 1 ? "" : "s") + " of " + AUTO.len + " seconds." : "";
+  }
+  function setCount(n) { AUTO.count = clamp(Math.round(+n || 1), 1, 50); acLabel(); }
+  $("acMinus").addEventListener("click", function () { setCount(AUTO.count - 1); });
+  $("acPlus").addEventListener("click", function () { setCount(AUTO.count + 1); });
+  $("acCount").addEventListener("change", function (e) { setCount(e.target.value); });
+  $("acCount").addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); setCount(e.target.value); } });
+  document.querySelectorAll(".ac-opt").forEach(function (b) { b.addEventListener("click", function () {
+    AUTO.len = +b.dataset.len; b.parentNode.querySelectorAll(".ac-opt").forEach(function (x) { x.setAttribute("aria-checked", String(x === b)); }); acLabel();
+  }); });
+  document.querySelectorAll(".ac-filter").forEach(function (b) { b.addEventListener("click", function () {
+    var k = b.dataset.filter; AUTO.f[k] = !AUTO.f[k]; b.setAttribute("aria-pressed", String(AUTO.f[k]));
+  }); });
+  /* "Cut quiet parts": cuts out stretches of near silence (about a second or more) inside a clip, leaving a little breathing room. */
+  function quietCuts(a, b) {
+    if (!S.env) return;
+    var vals = []; for (var u = a; u < b; u += .25) vals.push(S.env[clamp(Math.floor(u * ENV_RATE), 0, S.env.length - 1)]);
+    vals.sort(function (x, y) { return x - y; });
+    var thr = Math.max(.05, vals[Math.floor(vals.length * .9)] * .18), minRun = .9, pad = .18, step = 1 / ENV_RATE, runs = [], start = null;
+    for (var t = a; t < b; t += step) { var q = S.env[clamp(Math.floor(t * ENV_RATE), 0, S.env.length - 1)] < thr; if (q && start === null) start = t; if ((!q || t + step >= b) && start !== null) { if (t - start >= minRun) runs.push([start + pad, t - pad]); start = null; } }
+    if (!runs.length) return;
+    /* Never cut a clip below the shortest allowed length: put back the shortest quiet gaps first. */
+    var quiet = runs.reduce(function (n, r) { return n + r[1] - r[0]; }, 0);
+    while (runs.length && (b - a) - quiet < MIN_CLIP) { var k = 0; runs.forEach(function (r, x) { if (r[1] - r[0] < runs[k][1] - runs[k][0]) k = x; }); quiet -= runs[k][1] - runs[k][0]; runs.splice(k, 1); }
+    if (!runs.length) return;
+    var segs = [], cur = a, total = 0;
+    runs.forEach(function (r) { if (r[0] > cur + .05) { segs.push({ s: cur, e: r[0], cut: false }); total += r[0] - cur; } segs.push({ s: r[0], e: r[1], cut: true }); cur = r[1]; });
+    if (b > cur) { segs.push({ s: cur, e: b, cut: false }); total += b - cur; }
+    if (total >= MIN_CLIP && segs.some(function (g) { return !g.cut; })) { S.segs = segs; S.sel = 0; }
+  }
+  function pickWindows(n, len) {
+    var dur = S.dur; if (!(dur >= MIN_CLIP)) return [];
+    len = Math.min(len, dur); n = Math.min(n, Math.max(1, Math.floor(dur / len + .05)));
+    if (!S.env) { var gap = (dur - n * len) / (n + 1), even = []; for (var k = 0; k < n; k++) { var a0 = gap + k * (len + gap); even.push({ a: a0, b: a0 + len }); } return even; }
+    var env = S.env, pre = new Float64Array(env.length + 1); for (var i = 0; i < env.length; i++) pre[i + 1] = pre[i] + env[i];
+    var mean = function (t0, t1) { var i0 = clamp(Math.floor(t0 * ENV_RATE), 0, env.length), i1 = clamp(Math.floor(t1 * ENV_RATE), i0 + 1, env.length); return (pre[i1] - pre[i0]) / Math.max(1, i1 - i0); };
+    var step = Math.max(1, len / 6), cands = [];
+    for (var t = 0; t + len <= dur + .01; t += step) {
+      if (t + len > dur) t = Math.max(0, dur - len);
+      var peak = 0; for (var q = 0; q < len; q += .5) peak = Math.max(peak, mean(t + q, t + q + .5));
+      cands.push({ a: t, b: Math.min(dur, t + len), score: mean(t, t + len) * .5 + mean(t + len * .2, t + len * .8) * .2 + peak * .3 });
+    }
+    cands.sort(function (x, y) { return y.score - x.score; });
+    var out = []; cands.forEach(function (c) { if (out.length < n && out.every(function (o) { return c.b <= o.a || c.a >= o.b; })) out.push(c); });
+    return out;
+  }
+  function exportAndWait() {
+    clearResult();
+    return new Promise(function (done) {
+      startExport();
+      if (!S.exporting) { done(null); return; }
+      var iv = setInterval(function () { if (!S.exporting) { clearInterval(iv); done(S.result ? { blob: S.result.blob, ext: S.result.ext } : null); } }, 150);
+    });
+  }
+  function acName(i, ext) {
+    var base = $("acName").value.replace(/[\\/:*?"<>|\u0000-\u001f]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 60) || "Cutline clip";
+    return base + " " + String(i + 1).padStart(2, "0") + "." + ext;
+  }
+  function download(blob, name) { var a = document.createElement("a"), url = URL.createObjectURL(blob); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(url); }, 60000); }
+  function acRow(i, w) {
+    var li = document.createElement("li"); li.innerHTML = '<div class="ac-ph"></div><div><b></b><small></small></div><span></span>';
+    li.querySelector("b").textContent = "Clip " + (i + 1); li.querySelector("small").textContent = fmt(w.b - w.a) + " long, starts at " + fmt(w.a) + " · waiting";
+    $("acList").appendChild(li); return li;
+  }
+  function acDone(li, i, w, res) {
+    var v = document.createElement("video"); v.src = URL.createObjectURL(res.blob); v.muted = true; v.playsInline = true; v.loop = true; v.addEventListener("mouseenter", function () { v.play().catch(function () {}); }); v.addEventListener("mouseleave", function () { v.pause(); });
+    li.replaceChild(v, li.firstChild);
+    li.querySelector("small").textContent = fmt(w.kept || (w.b - w.a)) + " long, starts at " + fmt(w.a) + " · " + (res.blob.size / 1048576).toFixed(1) + " MB";
+    var btn = document.createElement("button"); btn.type = "button"; btn.className = "btn btn-white"; btn.textContent = "Save"; btn.addEventListener("click", function () { download(res.blob, acName(i, res.ext)); });
+    li.replaceChild(btn, li.lastChild);
+  }
+  /* A plain ZIP (no compression, since videos are already compressed), so all clips save as one file. */
+  var CRC = (function () { var t = new Uint32Array(256); for (var n = 0; n < 256; n++) { var c = n; for (var k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+  function crc32(d) { var c = 0xFFFFFFFF; for (var i = 0; i < d.length; i++) c = CRC[(c ^ d[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+  async function makeZip(files) {
+    var parts = [], central = [], offset = 0, enc = new TextEncoder();
+    for (var i = 0; i < files.length; i++) {
+      var data = new Uint8Array(await files[i].blob.arrayBuffer()), name = enc.encode(files[i].name), crc = crc32(data);
+      var h = new DataView(new ArrayBuffer(30)); h.setUint32(0, 0x04034b50, true); h.setUint16(4, 20, true); h.setUint16(6, 0x0800, true); h.setUint32(14, crc, true); h.setUint32(18, data.length, true); h.setUint32(22, data.length, true); h.setUint16(26, name.length, true);
+      var c = new DataView(new ArrayBuffer(46)); c.setUint32(0, 0x02014b50, true); c.setUint16(4, 20, true); c.setUint16(6, 20, true); c.setUint16(8, 0x0800, true); c.setUint32(16, crc, true); c.setUint32(20, data.length, true); c.setUint32(24, data.length, true); c.setUint16(28, name.length, true); c.setUint32(42, offset, true);
+      parts.push(h.buffer, name, data); central.push(c.buffer, name); offset += 30 + name.length + data.length;
+    }
+    var size = central.reduce(function (n, x) { return n + (x.byteLength || x.length); }, 0), e = new DataView(new ArrayBuffer(22));
+    e.setUint32(0, 0x06054b50, true); e.setUint16(8, files.length, true); e.setUint16(10, files.length, true); e.setUint32(12, size, true); e.setUint32(16, offset, true);
+    return new Blob(parts.concat(central, [e.buffer]), { type: "application/zip" });
+  }
+  $("acSaveAll").addEventListener("click", async function () {
+    var done = AUTO.clips.filter(Boolean); if (!done.length) return;
+    var btn = this; btn.disabled = true; btn.textContent = "Making the ZIP...";
+    try { var zip = await makeZip(AUTO.clips.map(function (c, i) { return c && { blob: c.blob, name: acName(i, c.ext) }; }).filter(Boolean)); download(zip, ($("acName").value.trim() || "Cutline clips") + ".zip"); btn.textContent = "Saved. Save all again (ZIP)"; }
+    catch (e) { btn.textContent = "Save all (ZIP)"; $("acStatus").textContent = "The ZIP couldn't be made. Save the clips one at a time instead."; }
+    btn.disabled = false;
+  });
+  $("acStop").addEventListener("click", function () { AUTO.stop = true; if (S.exporting) cancelExport("Auto clips stopped."); $("acStatus").textContent = "Stopping after this step..."; });
+  $("acClose").addEventListener("click", function () { $("acDialog").close(); });
+  $("acDialog").addEventListener("cancel", function (e) { if (AUTO.running) e.preventDefault(); });
+  $("acGo").addEventListener("click", async function () {
+    if (AUTO.running || S.exporting) return;
+    if (S.mode === "embed") { status("Auto clips need the video file. " + NAMES_EMBED[yt.kind] + " doesn't let other sites save its videos, so upload the file or use a Google Drive or Dropbox link."); return; }
+    if (S.mode !== "video" || (!S.srcFile && !S.srcUrl)) { status("Upload a video first, then Auto clips will find the best parts."); $("acNote").textContent = "Upload a video first."; return; }
+    var left = unlimited ? Infinity : allowanceLeft() + coins;
+    if (left <= 0) { openPay(true); return; }
+    var wins = pickWindows(AUTO.count, AUTO.len);
+    if (!wins.length) { status("This video is too short for Auto clips."); return; }
+    var notes = [];
+    if (wins.length < AUTO.count) notes.push("This video only has room for " + wins.length + " clip" + (wins.length > 1 ? "s" : "") + " of " + AUTO.len + " seconds.");
+    if (wins.length > left) { notes.push("You have " + left + " clip" + (left > 1 ? "s" : "") + " left, so Cutline will make " + left + ". Buy coins to make more."); wins = wins.slice(0, left); }
+    if (AUTO.f.order) wins.sort(function (x, y) { return x.a - y.a; });
+    var caps = AUTO.f.captions, saved = { a: S.a, b: S.b, caption: $("caption").value, autoCap: S.autoCap, words: S.words, chunks: S.chunks, capRange: S.capRange, fx: S.focus, fy: S.focusY, z: S.zoom };
+    if (!AUTO.f.framing) setFrame(50, 50, 100);
+    AUTO.running = true; AUTO.stop = false; AUTO.clips = []; $("acList").textContent = ""; $("acFill").style.width = "0";
+    $("acTitle").textContent = "Making " + wins.length + " clips"; $("acSaveAll").disabled = true; $("acSaveAll").textContent = "Save all (ZIP)"; $("acStop").hidden = false; $("acClose").hidden = true;
+    $("acStatus").textContent = notes.join(" ") || "Finding the best moments..."; $("acDialog").showModal();
+    if (!AUTO.f.hook) $("caption").value = "";
+    var rows = wins.map(function (w, i) { return acRow(i, w); }), capNote = "";
+    for (var i = 0; i < wins.length && !AUTO.stop; i++) {
+      var w = wins[i]; rows[i].querySelector("small").textContent = fmt(w.b - w.a) + " long, starts at " + fmt(w.a) + " · making it now";
+      S.autoCap = false;
+      if (caps) {
+        $("acStatus").textContent = "Clip " + (i + 1) + " of " + wins.length + ": listening for words...";
+        try { var d = await fetchCaptions(w.a, w.b); if (d.ok && d.words.length) { S.words = d.words; S.chunks = chunkWords(d.words); S.capRange = [w.a, w.b]; S.autoCap = true; } else if (!d.ok) capNote = d.message; }
+        catch (e) { capNote = "Auto captions couldn't read this video's sound, so the clips have no captions."; }
+      }
+      if (AUTO.stop) break;
+      if (!canExport()) { notes.push("You ran out of clips. Buy coins to make more."); break; }
+      S.a = w.a; S.b = w.b; resetSegs(); if (AUTO.f.quiet) quietCuts(w.a, w.b); layout();
+      $("acStatus").textContent = "Clip " + (i + 1) + " of " + wins.length + ": making it now. Keep this tab open.";
+      var res = await exportAndWait();
+      if (res) { AUTO.clips[i] = res; w.kept = keptLength(); acDone(rows[i], i, w, res); $("acExt").textContent = "01." + res.ext; }
+      else rows[i].querySelector("small").textContent = AUTO.stop ? "Stopped" : "Didn't finish";
+      $("acFill").style.width = ((i + 1) / wins.length * 100) + "%";
+    }
+    var made = AUTO.clips.filter(Boolean).length;
+    $("caption").value = saved.caption; S.a = saved.a; S.b = saved.b; setFrame(saved.fx, saved.fy, Math.round(saved.z * 100)); S.autoCap = saved.autoCap; S.words = saved.words; S.chunks = saved.chunks; S.capRange = saved.capRange; resetSegs(); clearResult(); layout();
+    if (made) $("acFill").style.width = "100%";
+    AUTO.running = false; $("acStop").hidden = true; $("acClose").hidden = false; $("acSaveAll").disabled = !made;
+    $("acTitle").textContent = made ? "Your " + made + " clip" + (made > 1 ? "s are" : " is") + " ready" : "No clips were made";
+    $("acStatus").textContent = (made ? "Save them one at a time, or all at once as a ZIP file. " : "") + [capNote].concat(notes).filter(Boolean).join(" ");
+    status(made ? "Auto clips made " + made + " clip" + (made > 1 ? "s" : "") + "." : "Auto clips stopped.");
+  });
   document.addEventListener("visibilitychange", function () { if (document.hidden && S.exporting) cancelExport("Export stopped because the tab was hidden. Keep this tab open and export again."); });
   /* The name people type becomes the file name, minus characters computers don't allow in file names. */
   function fileName() {
