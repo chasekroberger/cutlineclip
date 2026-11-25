@@ -944,7 +944,20 @@ dialog input { background: rgba(255,255,255,.06); color: #F7F5FF; border-color: 
 #appTop .nav-links a.admin-link { color: #27e8f2; }
 #appTop #logoutBtn { background: #e0156f; border-color: #e0156f; color: #fff; }
 #appTop .nav-links a, #appTop .nav-links .btn { white-space: nowrap; }
-@media (max-width: 1360px) { #appTop .nav-links a[href="#creators"], #appTop .nav-links a[href="#earnings"] { display: none; } }
+/* Signed-in bar: drop the least needed items first so everything fits on the screen. */
+#appTop .nav { gap: 14px; }
+#appTop .nav-links { gap: 16px; min-width: 0; }
+#appTop .nav-links a.coin-pill.coin-pill { display: inline-flex; }
+#appTop .nav-links a.admin-link:not([hidden]) { display: inline; }
+.visitor-coins.coin-pill.coin-pill { display: inline-flex; }
+#appTop .acct { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 1760px) { #appTop .acct, #appTop .nav-links a[href="#creators"] { display: none; } }
+@media (max-width: 1560px) { #appTop .nav-links a[href="#earnings"], #appTop .nav-links a[href="#features"] { display: none; } }
+@media (max-width: 1380px) { #appTop .nav-links a[href="#faq"], #appTop .nav-links a[href="#pricing"] { display: none; } }
+@media (max-width: 1180px) { #appTop .nav-links a.coin-pill .buy-word { display: none; } }
+@media (max-width: 900px) { #appTop .nav-links a[href="/editor"] { display: none; } }
+@media (max-width: 640px) { #appTop .nav-links a[href="#studio"] { display: none; } #appTop .nav-links { gap: 10px; } #appTop .nav-links .btn { padding: 7px 14px; } }
+@media (max-width: 400px) { #appTop .brand { font-size: 0; gap: 0; } }
 </style>
 </head>
 <body>
