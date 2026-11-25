@@ -4,6 +4,7 @@
    For posting to YouTube, TikTok, and Instagram, see the list at the top of src/social.js. */
 import PAGE from "./app.html";
 import { makeCaptions } from "./captions.js";
+import { creatorRequest, adminCreators, adminCreatorStatus } from "./creators.js";
 import PRIVACY from "./privacy.html";
 import TERMS from "./terms.html";
 import { FAVICON_SVG, ICON_PNG_BASE64, OG_JPG_BASE64 } from "./assets.js";
@@ -97,6 +98,7 @@ async function api(request, env, url, ctx) {
   switch (route) {
     case "GET /api/me": return json({ ok: true, user: publicUser(user, env) });
     case "POST /api/captions": return makeCaptions(request, env, user);
+    case "POST /api/creators": return creatorRequest(env, user, body);
     case "POST /api/clips/claim": return claimClip(env, user);
     case "POST /api/clips/release": return releaseClip(env, user, body);
     case "GET /api/import/file": return importSharedFile(request, url);
@@ -112,6 +114,8 @@ async function api(request, env, url, ctx) {
     if (!isAdmin(user, env)) return json({ ok: false, code: "forbidden", message: "Only the admin can do that." }, 403);
     if (route === "GET /api/admin/users") return adminList(env);
     if (route === "GET /api/admin/stripe") return stripeStatus(env, url);
+    if (route === "GET /api/admin/creators") return adminCreators(env);
+    if (route === "POST /api/admin/creators") return adminCreatorStatus(env, body);
     if (route === "POST /api/admin/stripe/link") return linkAllToStripe(env);
     if (method === "POST") return adminAction(env, user, path.slice("/api/admin/users/".length), body);
   }

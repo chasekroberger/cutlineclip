@@ -688,6 +688,7 @@ h1 .l2 { background: linear-gradient(100deg, #C8155F, #5B3DF5); -webkit-backgrou
 .admin-table td { border-bottom-color: #EEECF4; }
 .row-acts button { background: #fff; border-color: #D9D6E4; }
 .row-acts button.danger { color: var(--bad); }
+.admin-sub { margin: 34px 0 6px; font-size: 22px; }
 .admin-bar .tool, #adminRefresh { background: #fff; border-color: #D9D6E4; }
 .you { color: var(--violet); }
 .notice { background: #ECFEFF; border-color: #A5E3EE; color: var(--text); }
@@ -788,6 +789,131 @@ html:not(.signed-in) .member-only { display: none !important; }
   .studio .track, .studio .ed-track { height: 84px; }
   .studio .ed-head .note { display: none; }
 }
+
+/* Simple mode: pick Auto clips or Edit it yourself. Auto mode hides the hands-on editing tools. */
+.who { display: inline-flex; gap: 6px; padding: 6px; margin-top: 6px; border-radius: 999px; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.16); }
+.who a { min-height: 44px; display: inline-flex; align-items: center; padding: 0 22px; border-radius: 999px; color: #f7f5ff; font-weight: 700; text-decoration: none; }
+.who a.on { background: #f7f5ff; color: #0b0914; }
+.who a:not(.on):hover { background: rgba(255,255,255,.1); }
+.modes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+.mode { display: flex; align-items: center; gap: 14px; min-height: 72px; padding: 14px 22px; text-align: left; border-radius: 20px; border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.05); color: #f7f5ff; font: inherit; cursor: pointer; }
+.mode svg { width: 30px; height: 30px; flex: none; color: #8f8aab; }
+.mode span { display: flex; flex-direction: column; gap: 2px; }
+.mode b { font-size: 18px; }
+.mode small { font-size: 14px; color: #b4b0cc; }
+.mode:hover { background: rgba(255,255,255,.09); }
+.mode[aria-selected=true] { border-color: #ff2e88; background: rgba(255,46,136,.12); box-shadow: inset 0 -3px 0 #ff2e88; }
+.mode[aria-selected=true] svg { color: #ff2e88; }
+.mode:focus-visible { outline: 3px solid #27e8f2; outline-offset: 2px; }
+.ac-back { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 12px; color: #d4d0ea; }
+.ac-back[hidden] { display: none; }
+.ac-back .tool { flex: none; width: auto; padding: 0 18px; min-height: 42px; }
+.studio.mode-auto .edit > div:not(:first-child), .studio.mode-auto .edit .tip, .studio.mode-auto .export, .studio.mode-auto #queueBox, .studio.mode-auto .editor { display: none; }
+.studio.mode-edit #autoClips, .studio:not(.mode-auto) .auto-only { display: none; }
+.studio.mode-auto #autoClips { border-color: rgba(255,46,136,.45); }
+.auto-only { margin: 10px 0 0; }
+.ac-btns { display: flex; gap: 6px; }
+.nav-links a.coin-pill .buy-word { margin-left: 4px; padding: 4px 10px; border-radius: 999px; background: #ffe14d; color: #0b0914; font-size: 13px; font-weight: 800; }
+@media (max-width: 480px) { .nav-links a.coin-pill .buy-word { display: none; } }
+.signed-in .visitor-coins { display: none !important; }
+@media (max-width: 640px) { .modes { grid-template-columns: 1fr; } .mode { min-height: 60px; } }
+.creators { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(28px, 5vw, 64px); align-items: start; scroll-margin-top: 80px; }
+.creators h2 { margin-bottom: 14px; }
+.cr-copy p { font-size: 18px; line-height: 1.45; color: var(--dim); }
+.cr-copy ul { margin: 14px 0 0; padding-left: 20px; line-height: 1.8; }
+.cr-form { display: flex; flex-direction: column; gap: 14px; padding: clamp(18px, 2.6vw, 28px); border-radius: 26px; border: 1px solid var(--stroke); background: var(--panel); }
+.cr-form label { display: flex; flex-direction: column; gap: 6px; font-weight: 650; }
+.cr-form small { font-weight: 500; color: var(--dim); }
+.cr-form input:not([type=checkbox]) { min-height: 48px; padding: 8px 13px; border-radius: 12px; border: 1px solid var(--stroke); background: var(--panel-solid); font: inherit; font-weight: 500; }
+.cr-form .cr-check { flex-direction: row; align-items: flex-start; gap: 10px; font-weight: 500; line-height: 1.4; }
+.cr-check input { width: 20px; height: 20px; margin-top: 2px; flex: none; accent-color: #ff2e88; }
+.cr-status { margin: 0; min-height: 1.2em; font-weight: 600; }
+.cr-status.bad { color: #d6264f; }
+#coins { scroll-margin-top: 90px; }
+@media (max-width: 860px) { .creators { grid-template-columns: minmax(0, 1fr); } }
+
+/* In Auto clips mode the upload box and the Auto clips settings come first on smaller screens. */
+@media (min-width: 621px) and (max-width: 1080px) { .studio.mode-auto { grid-template-areas: "phone edit" "phone side" "time time"; } .studio.mode-auto .edit { max-height: none; } }
+@media (max-width: 620px) { .studio.mode-auto { grid-template-areas: "edit" "side" "phone" "time"; } }
+
+/* ===== v3: the mockup look. Dark neon everywhere, like the studio. ===== */
+:root { color-scheme: dark; --void: #0B0914; --panel: #15121F; --panel-solid: #1C1830; --stroke: rgba(255,255,255,.13); --text: #F7F5FF; --dim: #B4B0CC; --pink: #ff2e88; --violet: #8a5cff; --cyan: #27e8f2; --flare: linear-gradient(100deg, #ff2e88, #8a5cff); --bad: #ff5c8a; --shadow: 0 30px 80px rgba(0,0,0,.45); }
+html, body { background: #0B0914; color: #F7F5FF; }
+#site { background: radial-gradient(900px 480px at 10% 0, rgba(255,46,136,.16), transparent 70%), radial-gradient(900px 520px at 92% 30%, rgba(138,92,255,.14), transparent 70%), #0B0914; }
+#site h2, #site h3, #site summary, #site b, #site label { color: #F7F5FF; }
+#site p, #site li, #site .sub, #site small { color: #B4B0CC; }
+#site .studio p, #site .studio li { color: inherit; }
+#site .eyebrow { color: #ff2e88; background: rgba(255,46,136,.12); }
+#site h2 { font-family: var(--display); font-style: italic; font-weight: 900; text-transform: uppercase; letter-spacing: -.01em; }
+.feat, .plan, .calc, .faq-grid details, .cr-form, .coin-row, .coins, .cta-band, .card, .how-grid li, #how li { background: #15121F !important; border-color: rgba(255,255,255,.12) !important; color: #F7F5FF; box-shadow: none; }
+.plan.main { background: #1C1730 !important; border: 2px solid #ff2e88 !important; }
+.plan .price, .plan .price span, .result-big { color: #F7F5FF; }
+.calc input[type=number], .calc select, .cr-form input:not([type=checkbox]) { background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.2); color: #F7F5FF; }
+.calc select option { background: #1C1830; }
+.btn-white { background: #F7F5FF; color: #0B0914; }
+.btn-ghost { background: transparent; border-color: rgba(255,255,255,.3); color: #F7F5FF; }
+.btn-flare { background: linear-gradient(100deg, #ff2e88, #8a5cff); color: #fff; }
+.cta-band { background: linear-gradient(110deg, #ff2e88, #8a5cff) !important; border: 0 !important; }
+.cta-band h2, .cta-band p { color: #fff !important; }
+.site-footer { background: #0B0914; border-top: 1px solid rgba(255,255,255,.1); color: #8f8aab; }
+.site-footer a, .site-footer b { color: #B4B0CC; }
+dialog { background: #15121F; color: #F7F5FF; border: 1px solid rgba(255,255,255,.14); color-scheme: dark; }
+dialog p, dialog small, dialog .note { color: #B4B0CC; }
+dialog h3, dialog b, dialog label { color: #F7F5FF; }
+dialog input { background: rgba(255,255,255,.06); color: #F7F5FF; border-color: rgba(255,255,255,.2); }
+.ac-list li { background: rgba(255,255,255,.04); border-color: rgba(255,255,255,.12); }
+
+/* Auto clips tab, laid out like the mockup: a big drop zone, then the settings, then one big Make button. */
+.studio.mode-auto { display: flex; flex-direction: column; align-items: stretch !important; gap: 18px; padding: clamp(16px, 2.4vw, 32px); }
+.studio.mode-auto .edit, .studio.mode-auto .side { width: 100%; }
+.studio.mode-auto #playBtn { display: none; }
+.studio.mode-auto .phone-wrap, .studio.mode-auto .timeline { display: none; }
+.studio.mode-auto .edit, .studio.mode-auto .side { max-height: none !important; overflow: visible !important; padding-right: 0 !important; }
+.studio.mode-auto .vidbox { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 30px 24px; text-align: center; border: 2px dashed rgba(255,46,136,.55); border-radius: 22px; background: rgba(255,46,136,.05); }
+.studio.mode-auto .vidbox .lbl { display: none; }
+.studio.mode-auto .vidbox .row { justify-content: center; width: 100%; max-width: 640px; }
+.studio.mode-auto .vidbox .link-row { width: 100%; max-width: 640px; }
+.studio.mode-auto .edit.box { padding: 0; border: 0; background: transparent; }
+.drop-ico { width: 42px; height: 42px; color: #ff2e88; }
+.drop-title { margin: 0; font-size: 22px; font-weight: 700; color: #F7F5FF !important; }
+.studio.mode-auto #autoClips { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 24px; row-gap: 10px; padding: 0; border: 0; background: transparent; }
+.studio.mode-auto #autoClips > h3, .studio.mode-auto #autoClips > .note:first-of-type { display: none; }
+.studio.mode-auto #acCountLbl { grid-column: 1; grid-row: 1; }
+.studio.mode-auto .ac-count { grid-column: 1; grid-row: 2; }
+.studio.mode-auto #acLenLbl { grid-column: 2; grid-row: 1; }
+.studio.mode-auto .ac-len { grid-column: 2; grid-row: 2; }
+.studio.mode-auto #acFit { grid-column: 1 / -1; grid-row: 3; }
+.studio.mode-auto #acFiltLbl { grid-column: 1 / -1; grid-row: 4; }
+.studio.mode-auto .ac-filters { grid-column: 1 / -1; grid-row: 5; }
+.studio.mode-auto #acGo { grid-column: 1 / -1; grid-row: 6; min-height: 64px; font-size: 22px; font-weight: 800; box-shadow: 0 14px 40px rgba(255,46,136,.35); }
+.studio.mode-auto #acNote { grid-column: 1 / -1; grid-row: 7; text-align: center; }
+.studio.mode-auto .ac-wallet { grid-column: 1 / -1; grid-row: 8; }
+.studio.mode-auto .ac-label { font-weight: 700; color: #D4D0EA; font-size: 15px; }
+.studio.mode-auto .ac-count button, .studio.mode-auto .ac-count input { min-height: 56px; font-size: 26px; }
+.studio.mode-auto .ac-opt { min-height: 56px; }
+.studio.mode-auto .ac-filter { min-height: 44px; padding: 0 18px; font-size: 15px; }
+.ac-wallet { display: none; margin: 0; justify-content: center; align-items: center; gap: 14px; flex-wrap: wrap; font-size: 14px; color: #B4B0CC; }
+.studio.mode-auto .ac-wallet { display: flex; }
+.ac-wallet #acFree { padding: 6px 12px; border-radius: 999px; background: rgba(92,255,122,.12); color: #5CFF7A; font-weight: 700; }
+.ac-wallet #acFree:empty { display: none; }
+.ac-wallet a { color: #27e8f2; font-weight: 600; }
+@media (max-width: 620px) { .studio.mode-auto #autoClips { grid-template-columns: minmax(0, 1fr); } .studio.mode-auto #acLenLbl { grid-column: 1; grid-row: 3; } .studio.mode-auto .ac-len { grid-column: 1; grid-row: 4; } .studio.mode-auto #acFit { grid-row: 5; } .studio.mode-auto #acFiltLbl { grid-row: 6; } .studio.mode-auto .ac-filters { grid-row: 7; } .studio.mode-auto #acGo { grid-row: 8; } .studio.mode-auto #acNote { grid-row: 9; } .studio.mode-auto .ac-wallet { grid-row: 10; } }
+/* Light leftovers from the old theme. */
+.platforms { background: transparent !important; border-color: rgba(255,255,255,.1) !important; }
+.platforms b { color: #F7F5FF !important; }
+.mini-wave { background: rgba(255,255,255,.06) !important; }
+.mini-wave i { background: rgba(255,255,255,.25); }
+.mini-wave i.hot { background: #ff2e88; }
+.mini-cut span { background: rgba(138,92,255,.16) !important; border-color: rgba(138,92,255,.5) !important; color: #F7F5FF; }
+.mini-cut span.cut { background: repeating-linear-gradient(135deg, rgba(255,46,136,.25) 0 8px, transparent 8px 14px) !important; }
+.mini-q div { background: rgba(255,255,255,.06) !important; color: #F7F5FF; }
+.mini-q b, .mini-q span { color: #F7F5FF !important; }
+.coins-strip { background: #15121F !important; border-color: rgba(255,255,255,.12) !important; box-shadow: none !important; }
+.coin { background: rgba(255,255,255,.05) !important; border-color: rgba(255,255,255,.2) !important; color: #F7F5FF; }
+.coin b { color: #F7F5FF !important; }
+.coin span { color: #B4B0CC !important; }
+.cta-band .btn-white, .cta-band .btn { background: #fff !important; color: #0B0914 !important; }
+.feat .ico { background: rgba(255,255,255,.08) !important; }
 </style>
 </head>
 <body>
@@ -836,7 +962,8 @@ html:not(.signed-in) .member-only { display: none !important; }
   <nav class="nav" aria-label="Main">
     <a class="brand" href="#top"><svg viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="g3" x1="0" x2="1"><stop stop-color="#E11D74"/><stop offset="1" stop-color="#06B6D4"/></linearGradient></defs><path fill="url(#g3)" d="M9 2H2v20h7v-4H6V6h3zM15 2h7v20h-7v-4h3V6h-3z"/><rect x="11" width="2" height="24" fill="#0F0C1D"/></svg>Cutline</a>
     <div class="nav-links">
-      <a href="#how">How it works</a><a href="#features">Features</a><a href="#pricing">Pricing</a><a href="#faq">FAQ</a>
+      <a href="#features">Features</a><a href="#earnings">Earnings</a><a href="#pricing">Pricing</a><a href="#faq">FAQ</a><a href="#creators">For creators</a>
+      <a class="coin-pill zero visitor-coins" href="#coins" aria-label="Buy coins"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="#f5c542"/><circle cx="12" cy="12" r="6.5" fill="none" stroke="#7a4b00" stroke-width="1.6" opacity=".55"/><path d="M12 8.4l1.1 2.3 2.5.3-1.85 1.7.5 2.5L12 14l-2.25 1.2.5-2.5L8.4 11l2.5-.3z" fill="#7a4b00" opacity=".7"/></svg><b>0</b><span class="coin-word">coins</span><span class="buy-word">Buy coins</span></a>
       <a class="btn btn-ghost" href="#login">Log in</a>
       <a class="btn btn-white" href="#signup">Start free</a>
     </div>
@@ -850,8 +977,8 @@ html:not(.signed-in) .member-only { display: none !important; }
   <nav class="nav" aria-label="Main">
     <a class="brand" href="#top"><svg viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="g" x1="0" x2="1"><stop stop-color="#ff2e88"/><stop offset="1" stop-color="#27e8f2"/></linearGradient></defs><path fill="url(#g)" d="M9 2H2v20h7v-4H6V6h3zM15 2h7v20h-7v-4h3V6h-3z"/><rect x="11" width="2" height="24" fill="#fff"/></svg>Cutline</a>
     <div class="nav-links">
-      <a href="#features">Features</a><a href="#earnings">Earnings</a><a href="#pricing">Pricing</a><a href="#faq">FAQ</a>
-      <!--ADMIN-START--><a class="admin-link" id="adminLink" href="#admin" hidden>Admin</a><!--ADMIN-END--><a class="coin-pill" id="coinPill" href="#pricing" aria-label="You have 0 coins. Buy more."><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="url(#coinG)"/><circle cx="12" cy="12" r="6.5" fill="none" stroke="#7a4b00" stroke-width="1.6" opacity=".55"/><path d="M12 8.4l1.1 2.3 2.5.3-1.85 1.7.5 2.5L12 14l-2.25 1.2.5-2.5L8.4 11l2.5-.3z" fill="#7a4b00" opacity=".7"/><defs><linearGradient id="coinG" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ffe27a"/><stop offset="1" stop-color="#f5a623"/></linearGradient></defs></svg><b id="coinCount">0</b><span class="coin-word" id="coinWord">coins</span></a><span class="acct" id="acctEmail"></span><button class="btn btn-ghost" id="logoutBtn" type="button">Log out</button>
+      <a href="#features">Features</a><a href="#earnings">Earnings</a><a href="#pricing">Pricing</a><a href="#faq">FAQ</a><a href="#creators">For creators</a>
+      <!--ADMIN-START--><a class="admin-link" id="adminLink" href="#admin" hidden>Admin</a><!--ADMIN-END--><a class="coin-pill" id="coinPill" href="#pricing" aria-label="You have 0 coins. Buy more."><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="url(#coinG)"/><circle cx="12" cy="12" r="6.5" fill="none" stroke="#7a4b00" stroke-width="1.6" opacity=".55"/><path d="M12 8.4l1.1 2.3 2.5.3-1.85 1.7.5 2.5L12 14l-2.25 1.2.5-2.5L8.4 11l2.5-.3z" fill="#7a4b00" opacity=".7"/><defs><linearGradient id="coinG" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ffe27a"/><stop offset="1" stop-color="#f5a623"/></linearGradient></defs></svg><b id="coinCount">0</b><span class="coin-word" id="coinWord">coins</span><span class="buy-word">Buy coins</span></a><span class="acct" id="acctEmail"></span><button class="btn btn-ghost" id="logoutBtn" type="button">Log out</button>
       <a class="btn btn-ghost" href="/editor">Full editor</a>
       <a class="btn btn-white" href="#studio">Make a free clip</a>
     </div>
@@ -865,30 +992,34 @@ html:not(.signed-in) .member-only { display: none !important; }
 <div class="hero-dark">
 <header class="pub-hero">
   <span class="tag"><i></i>Made for clippers</span>
-  <h1><span class="l1">Streams in.</span><span class="l2">Clips out.</span></h1>
-  <p>Drop in a long stream. Pick the best part. Post it everywhere. That's it.</p>
-  <div class="cta-row visitor-only"><a class="btn btn-flare btn-lg" href="#studio">Try it right here</a><a class="btn btn-ghost btn-lg" href="/editor">Open the full editor</a></div>
+  <h1><span class="l1">Long video in.</span><span class="l2">Clips out.</span></h1>
+  <p>Let Cutline pick the best moments, or edit them yourself.</p>
+  <div class="who" role="group" aria-label="Who are you"><a class="on" href="#studio">I clip videos</a><a href="#creators">I make videos</a></div>
   <p class="micro visitor-only">Free to start. No card. Nothing to download.</p>
 </header>
 <section class="try wrap" aria-labelledby="tryTitle">
   <div class="try-head">
     <h2 id="tryTitle"><span class="visitor-only">Try it. No account needed.</span><span class="member-only">Make a clip</span></h2>
-    <ol class="try-steps">
-      <li><b>1</b>Tap a glowing dot to jump to a hype moment</li>
-      <li><b>2</b>Drag the edges to trim and type a caption</li>
-      <li><b>3</b>Hit Export clip, then queue it to post</li>
-    </ol>
-    <p class="try-more">Want split screen, auto captions, hooks, and zooms? <a href="/editor">Open the full editor</a></p>
+    <p class="try-more">Want split screen, hooks, and zooms? <a href="/editor">Open the full editor</a></p>
   </div>
-  <div class="studio" id="studio">
+  <div class="modes" role="tablist" aria-label="How do you want to make clips">
+    <button class="mode" id="modeAuto" type="button" role="tab" aria-selected="true" aria-controls="studio" data-mode="auto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 4.6L18.5 9l-4.7 1.4L12 15l-1.8-4.6L5.5 9l4.7-1.4zM19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z"/></svg><span><b>Auto clips</b><small>Cutline picks the best moments for you</small></span></button>
+    <button class="mode" id="modeEdit" type="button" role="tab" aria-selected="false" aria-controls="studio" data-mode="edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4L8.1 15.9M14.5 14.5L20 20M8.1 8.1L12 12"/></svg><span><b>Edit it yourself</b><small>Trim, caption and frame one clip</small></span></button>
+  </div>
+  <div class="ac-back" id="acBack" hidden><button class="tool" id="acBackBtn" type="button">&lsaquo; Back to your clips</button><span id="acBackNote"></span>
+  </div>
+  <div class="studio mode-auto" id="studio">
     <div class="edit box">
-      <div>
+      <div class="vidbox">
+        <svg class="auto-only drop-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></svg>
+        <p class="auto-only drop-title">Drop your video here</p>
         <span class="lbl">Video</span>
         <div class="row">
           <label class="tool">Upload video<input id="fileInput" type="file" accept="video/*" aria-label="Upload video"></label>
           <button class="tool" id="linkToggle" type="button" aria-expanded="false" aria-controls="linkRow">Add link</button>
           <button class="tool" id="playBtn" type="button">Pause</button>
         </div>
+        <p class="note auto-only">MP4 or MOV from your computer or phone, or a Google Drive or Dropbox link.</p>
         <form class="link-row" id="linkRow" hidden novalidate><input id="linkInput" type="url" inputmode="url" placeholder="Paste a YouTube, Twitch, Vimeo, Drive, or Dropbox link" aria-label="Video link"><button class="tool" type="submit">Load</button></form>
       </div>
       <div><label class="lbl" for="caption">Caption</label><input id="caption" maxlength="70" value="When the squad finally clutches" placeholder="Add a caption (optional)">
@@ -952,6 +1083,7 @@ html:not(.signed-in) .member-only { display: none !important; }
         </div>
         <button class="btn btn-flare" id="acGo" type="button">Make 5 clips</button>
         <p class="note ac-note" id="acNote">Each clip uses 1 of your clips.</p>
+        <p class="ac-wallet"><span id="acFree"></span><a href="#coins">Buy coins</a><span>You can still edit any clip after.</span></p>
       </div>
       <div class="export box">
         <h3>Your clip</h3>
@@ -1017,7 +1149,7 @@ html:not(.signed-in) .member-only { display: none !important; }
 </section>
 <div class="vibe-tick" aria-hidden="true"><div><span>Auto upload coming soon</span><span>✦</span><span>Captions</span><span>✦</span><span>Cut the boring parts</span><span>✦</span><span>Vertical in one click</span><span>✦</span><span>YouTube</span><span>✦</span><span>Instagram</span><span>✦</span><span>TikTok</span><span>✦</span><span>5 free clips</span><span>✦</span><span>Auto upload coming soon</span><span>✦</span><span>Captions</span><span>✦</span><span>Cut the boring parts</span><span>✦</span><span>Vertical in one click</span><span>✦</span><span>YouTube</span><span>✦</span><span>Instagram</span><span>✦</span><span>TikTok</span><span>✦</span><span>5 free clips</span><span>✦</span></div></div>
 </div>
-<div class="platforms"><div><span>Made for</span><b>YouTube Shorts</b><b>Instagram Reels</b><b>TikTok</b><span>Built for paid clipping campaigns</span></div></div>
+<div class="platforms"><div><span>Made for</span><b>YouTube Shorts</b><b>Instagram Reels</b><b>TikTok</b></div></div>
 <section id="how" class="wrap">
   <div class="sec-head"><span class="eyebrow">How it works</span><h2>Three steps. That's it.</h2></div>
   <ol class="steps">
@@ -1040,6 +1172,9 @@ html:not(.signed-in) .member-only { display: none !important; }
     <div class="admin-bar"><label for="adminSearch">Find an account</label><input id="adminSearch" type="search" placeholder="Search by email"><button class="tool" id="adminRefresh" type="button">Refresh</button></div>
     <p id="adminStatus" role="status"></p>
     <div class="admin-table"><table><thead><tr><th scope="col">Email</th><th scope="col">Plan</th><th scope="col">Clips</th><th scope="col">Coins</th><th scope="col">Stripe</th><th scope="col">Joined</th><th scope="col">Actions</th></tr></thead><tbody id="adminRows"></tbody></table></div>
+    <h3 class="admin-sub">Creators who want to be clipped</h3>
+    <p class="note">Check that each channel really belongs to the person before you approve it.</p>
+    <div class="admin-table"><table><thead><tr><th scope="col">Email</th><th scope="col">Channel</th><th scope="col">Videos</th><th scope="col">Rules</th><th scope="col">Sent</th><th scope="col">Status</th></tr></thead><tbody id="creatorRows"></tbody></table></div>
   </section>
   <!--ADMIN-END-->
   <section id="features" class="wrap">
@@ -1055,7 +1190,7 @@ html:not(.signed-in) .member-only { display: none !important; }
   </section>
 
   <section id="earnings" class="wrap earn-grid">
-    <div><span class="eyebrow">Earnings</span><h2>See what your views could pay</h2><p>Paid clipping campaigns usually pay per 1,000 approved views. Enter your numbers to estimate a month after fees and your plan.</p></div>
+    <div><span class="eyebrow">Earnings</span><h2>See what your views could pay</h2><p>Paid clipping usually pays per 1,000 approved views. Enter your numbers to estimate a month after fees and your plan.</p></div>
     <div class="calc">
       <div class="field"><label for="views">Views per month <output id="viewsOut" for="views"></output></label><input id="views" type="range" min="0" max="2000000" step="10000" value="250000"></div>
       <div class="field"><label for="approved">Views approved for payment <output id="approvedOut" for="approved"></output></label><input id="approved" type="range" min="10" max="100" step="5" value="70"></div>
@@ -1067,17 +1202,33 @@ html:not(.signed-in) .member-only { display: none !important; }
     </div>
   </section>
 
+  <section id="creators" class="wrap creators">
+    <div class="cr-copy">
+      <span class="eyebrow">For creators</span><h2>Get clipped for free</h2>
+      <p>Share your streams once. Clippers on Cutline turn them into Shorts, TikToks and Reels that credit you. You can leave any time.</p>
+      <ul><li>Every clip credits your channel</li><li>You set the rules, like tags or topics to skip</li><li>We check it's really your channel first</li></ul>
+    </div>
+    <form class="cr-form" id="creatorForm" novalidate>
+      <label>Your channel link<input id="crChannel" type="url" inputmode="url" placeholder="youtube.com/@yourname" autocomplete="url" maxlength="500"></label>
+      <label>Google Drive or Dropbox folder with your videos<input id="crFolder" type="url" inputmode="url" placeholder="Paste the share link" maxlength="500"></label>
+      <label><span>Rules for clippers <small>(optional)</small></span><input id="crRules" maxlength="500" placeholder="Like: tag @me, no clips about my family"></label>
+      <label class="cr-check"><input id="crOwns" type="checkbox">I own these videos and let Cutline clippers post clips of them, with credit.</label>
+      <button class="btn btn-flare" id="creatorGo" type="submit">Share my videos</button>
+      <p class="cr-status" id="crStatus" role="status"></p>
+    </form>
+  </section>
+
   <section id="pricing" class="wrap">
     <div class="sec-head"><span class="eyebrow">Pricing</span><h2>Start free. Pay when it pays off.</h2><p>Every account gets 5 free clips. Cancel a plan any time.</p></div>
     <div class="bill-toggle" role="group" aria-label="How often you pay"><button type="button" data-bill="month" aria-pressed="true">Monthly</button><button type="button" data-bill="year" aria-pressed="false">Yearly <span class="save">Save up to 37%</span></button></div>
     <div class="plans">
       <div class="plan" data-bill-show="month"><h3>Free</h3><p class="sub">Try Cutline on your own videos</p><div class="price">$0</div><a class="btn btn-ghost" href="#studio">Make 5 clips free</a><ul><li>5 finished clips</li><li>Captions, cuts, and vertical reframing</li><li>No card needed</li></ul></div>
       <div class="plan main"><span class="badge">Recommended</span><h3>Solo</h3><p class="sub">For one clipper posting every day</p><div class="price"><span data-bill-show="month">$9.99 <small>per month</small></span><span data-bill-show="year" hidden>$79.99 <small>per year</small></span></div><p class="per-note" data-bill-show="year" hidden>Just $6.67 a month, paid once a year. <b>Save 33%</b></p><button class="btn btn-flare" type="button" data-plan="solo">Choose Solo</button><ul><li>100 clips a month</li><li>Captions, cuts, and vertical reframing</li><li>Auto upload to YouTube, Instagram, and TikTok when it launches</li></ul></div>
-      <div class="plan"><h3>Pro</h3><p class="sub">For full-time clippers and small teams</p><div class="price"><span data-bill-show="month">$39.99 <small>per month</small></span><span data-bill-show="year" hidden>$299.99 <small>per year</small></span></div><p class="per-note" data-bill-show="year" hidden>Just $25 a month, paid once a year. <b>Save 37%</b></p><button class="btn btn-white" type="button" data-plan="pro">Choose Pro</button><ul><li>500 clips a month</li><li>Everything in Solo</li><li>Room for several campaigns at once</li></ul></div>
+      <div class="plan"><h3>Pro</h3><p class="sub">For full-time clippers and small teams</p><div class="price"><span data-bill-show="month">$39.99 <small>per month</small></span><span data-bill-show="year" hidden>$299.99 <small>per year</small></span></div><p class="per-note" data-bill-show="year" hidden>Just $25 a month, paid once a year. <b>Save 37%</b></p><button class="btn btn-white" type="button" data-plan="pro">Choose Pro</button><ul><li>500 clips a month</li><li>Everything in Solo</li><li>Room for several channels at once</li></ul></div>
     </div>
     <p class="plan-status" id="planStatus" role="status"></p>
     <div class="coins-strip">
-      <div><h3>Need a few more clips? Buy coins.</h3><p>1 coin makes 1 extra clip after your free or plan clips run out. Coins never expire.</p></div>
+      <div id="coins"><h3>Need a few more clips? Buy coins.</h3><p>1 coin makes 1 extra clip after your free or plan clips run out. Coins never expire.</p></div>
       <div class="coin-packs">
         <button class="coin" type="button" data-pack="starter"><b>20 coins</b><span>$4.99</span></button>
         <button class="coin" type="button" data-pack="creator"><b>50 coins</b><span>$7.99</span></button>
@@ -1094,7 +1245,7 @@ html:not(.signed-in) .member-only { display: none !important; }
       <details><summary>What happens after my 5 free clips?</summary><p>Buy coins to make more clips, 1 coin per clip, or choose a monthly plan.</p></details>
       <details><summary>Can I paste a YouTube or Twitch link?</summary><p>Yes. Select Add link and paste a YouTube, Twitch, or Vimeo link to watch it and mark your cuts right in Cutline. Those sites don't let other apps save their videos, so to export a finished clip, upload the file or paste a Google Drive or Dropbox link. Drive and Dropbox links open and export just like an upload. Only use videos you own, have permission to use, or received through a campaign that allows clipping.</p></details>
       <details><summary>Which browsers work best?</summary><p>Use the latest Chrome or Edge on a computer. Keep the tab open while your clip exports, because it takes as long as the clip plays.</p></details>
-      <details><summary>Does Cutline guarantee views or payouts?</summary><p>No. Views depend on your clips and TikTok's recommendations, and each campaign decides which views it pays for.</p></details>
+      <details><summary>Does Cutline guarantee views or payouts?</summary><p>No. Views depend on your clips and each app's recommendations.</p></details>
     </div>
   </section>
 
@@ -1357,7 +1508,7 @@ window.CutlineAuth = (function () {
   /* Visitors can try the editor. Exporting, connecting accounts, plans, and coins go to sign up first. */
   document.addEventListener("click", function (e) {
     if (signedIn()) return;
-    var t = e.target.closest && e.target.closest('[data-plan], [data-pack], #exportBtn, #postBtn, #accts button, #autoCapBtn, #acGo');
+    var t = e.target.closest && e.target.closest('[data-plan], [data-pack], #exportBtn, #postBtn, #accts button, #autoCapBtn, #acGo, #creatorGo');
     if (!t) return; e.preventDefault(); e.stopImmediatePropagation();
     if (t.closest("#studio")) { try { sessionStorage.setItem("cutline_try_caption", $("caption").value); } catch (x) {} }
     location.hash = "signup";
@@ -1372,7 +1523,7 @@ window.CutlineAuth = (function () {
   });
   /* Earnings estimate */
   var money = function (n) { return (n < 0 ? "-$" : "$") + Math.abs(n).toLocaleString("en-US", { maximumFractionDigits: 0 }); };
-  function updateCalc() { var v = +$("views").value, ap = +$("approved").value, r = Math.max(0, +$("rate").value || 0), p = +$("planCost").value, gross = v / 1000 * r * ap / 100, net = gross * .9 - p, per = r * ap / 100 * .9 / 1000; $("viewsOut").textContent = v.toLocaleString("en-US"); $("approvedOut").textContent = ap + "%"; $("net").textContent = money(net); $("netDetail").textContent = "Estimated monthly take-home: " + money(gross) + " earned, minus a 10% marketplace fee and your $" + p + " plan." + (per > 0 ? " Your plan pays for itself at about " + Math.ceil(p / per).toLocaleString("en-US") + " views." : "") + " Actual pay depends on each campaign."; }
+  function updateCalc() { var v = +$("views").value, ap = +$("approved").value, r = Math.max(0, +$("rate").value || 0), p = +$("planCost").value, gross = v / 1000 * r * ap / 100, net = gross * .9 - p, per = r * ap / 100 * .9 / 1000; $("viewsOut").textContent = v.toLocaleString("en-US"); $("approvedOut").textContent = ap + "%"; $("net").textContent = money(net); $("netDetail").textContent = "Estimated monthly take-home: " + money(gross) + " earned, minus a 10% marketplace fee and your $" + p + " plan." + (per > 0 ? " Your plan pays for itself at about " + Math.ceil(p / per).toLocaleString("en-US") + " views." : "") + " Actual pay depends on where you post."; }
   ["views", "approved", "rate", "planCost"].forEach(function (id) { $(id).addEventListener("input", updateCalc); });
 
   updateCalc();
@@ -1437,8 +1588,27 @@ window.CutlineAdminStart = function () {
   }
   async function load() { try { rows = await store.list(); render(); } catch (e) { say(e.message || "Accounts couldn't load. Select Refresh to try again."); } }
   $("adminSearch").addEventListener("input", render);
-  $("adminRefresh").addEventListener("click", function () { say(""); load(); });
-  load();
+  $("adminRefresh").addEventListener("click", function () { say(""); load(); loadCreators(); });
+  load(); loadCreators();
+  function link(url) { var a = document.createElement("a"); a.href = url; a.target = "_blank"; a.rel = "noopener noreferrer"; a.textContent = url.replace(/^https?:\/\/(www\.)?/, "").slice(0, 48); return a; }
+  async function loadCreators() {
+    var body = $("creatorRows"); if (!body) return;
+    if (Auth.mode !== "server") { body.textContent = ""; var t = body.insertRow().insertCell(); t.colSpan = 6; t.textContent = "Creator requests show here on the live site."; return; }
+    var d; try { var r = await fetch("/api/admin/creators", { credentials: "same-origin" }); d = await r.json(); } catch (e) { d = { ok: false }; }
+    body.textContent = "";
+    if (!d.ok) { var t0 = body.insertRow().insertCell(); t0.colSpan = 6; t0.textContent = "Creator requests couldn't load. Select Refresh to try again."; return; }
+    if (!d.creators.length) { var t1 = body.insertRow().insertCell(); t1.colSpan = 6; t1.textContent = "No creator requests yet."; return; }
+    d.creators.forEach(function (c) {
+      var tr = body.insertRow();
+      tr.insertCell().textContent = c.email; tr.insertCell().appendChild(link(c.channel)); tr.insertCell().appendChild(link(c.folder));
+      tr.insertCell().textContent = c.rules || ""; tr.insertCell().textContent = new Date(c.createdAt).toLocaleDateString();
+      var cell = tr.insertCell(), wrap = document.createElement("div"); wrap.className = "row-acts"; cell.appendChild(wrap);
+      if (c.status !== "pending") { wrap.textContent = c.status === "approved" ? "Approved" : "Declined"; return; }
+      [["approved", "Approve", ""], ["declined", "Decline", "danger"]].forEach(function (x) {
+        wrap.appendChild(btn(x[1], x[2], async function () { var res = await Auth.post("/api/admin/creators", { id: c.id, status: x[0] }); say(res.ok ? c.email + " was " + x[0] + "." : res.message || "That didn't save."); loadCreators(); }));
+      });
+    });
+  }
 };
 </script>
 <!--ADMIN-END-->
@@ -2092,7 +2262,7 @@ window.CutlineAdminStart = function () {
     var n = allowanceLeft(), el = $("freeLeft"), coinText = coins + (coins === 1 ? " coin" : " coins"), t;
     if (unlimited) t = "Unlimited clips";
     else { t = paidPlan ? n + " of " + clipLimit + " plan clips left" : n ? n + " of " + clipLimit + " free clips left" : "No free clips left"; if (coins || !n) t += ", " + coinText; }
-    el.textContent = t; el.className = canExport() ? "free" : "free out";
+    el.textContent = t; el.className = canExport() ? "free" : "free out"; if ($("acFree")) $("acFree").textContent = t;
     var pill = $("coinPill"), cc = $("coinCount");
     if (pill && cc) {
       var prev = cc.textContent; cc.textContent = coins.toLocaleString("en-US"); $("coinWord").textContent = coins === 1 ? "coin" : "coins";
@@ -2224,8 +2394,10 @@ window.CutlineAdminStart = function () {
     var v = document.createElement("video"); v.src = URL.createObjectURL(res.blob); v.muted = true; v.playsInline = true; v.loop = true; v.addEventListener("mouseenter", function () { v.play().catch(function () {}); }); v.addEventListener("mouseleave", function () { v.pause(); });
     li.replaceChild(v, li.firstChild);
     li.querySelector("small").textContent = fmt(w.kept || (w.b - w.a)) + " long, starts at " + fmt(w.a) + " · " + (res.blob.size / 1048576).toFixed(1) + " MB";
-    var btn = document.createElement("button"); btn.type = "button"; btn.className = "btn btn-white"; btn.textContent = "Save"; btn.addEventListener("click", function () { download(res.blob, acName(i, res.ext)); });
-    li.replaceChild(btn, li.lastChild);
+    var btns = document.createElement("span"), btn = document.createElement("button"), ed = document.createElement("button"); btns.className = "ac-btns";
+    btn.type = "button"; btn.className = "btn btn-white"; btn.textContent = "Save"; btn.addEventListener("click", function () { download(res.blob, acName(i, res.ext)); });
+    ed.type = "button"; ed.className = "btn btn-ghost"; ed.textContent = "Edit"; ed.setAttribute("aria-label", "Edit clip " + (i + 1)); ed.addEventListener("click", function () { acEdit(i, w); });
+    btns.append(btn, ed); li.replaceChild(btns, li.lastChild);
   }
   /* A plain ZIP (no compression, since videos are already compressed), so all clips save as one file. */
   var CRC = (function () { var t = new Uint32Array(256); for (var n = 0; n < 256; n++) { var c = n; for (var k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
@@ -2242,6 +2414,30 @@ window.CutlineAdminStart = function () {
     e.setUint32(0, 0x06054b50, true); e.setUint16(8, files.length, true); e.setUint16(10, files.length, true); e.setUint32(12, size, true); e.setUint32(16, offset, true);
     return new Blob(parts.concat(central, [e.buffer]), { type: "application/zip" });
   }
+  /* Edit opens one auto clip in the editor with the same trim, cuts, captions and framing it was made with. */
+  function acEdit(i, w) {
+    if (AUTO.running || !w.segs) return;
+    $("acDialog").close();
+    S.a = w.a; S.b = w.b; S.segs = w.segs.map(function (g) { return { s: g.s, e: g.e, cut: g.cut }; }); S.sel = 0;
+    S.autoCap = w.cap.autoCap; S.words = w.cap.words; S.chunks = w.cap.chunks; S.capRange = w.cap.capRange; setAutoCapUI();
+    $("caption").value = w.caption; setFrame(w.frame.fx, w.frame.fy, Math.round(w.frame.z * 100));
+    clearResult(); setMode("edit"); seek(S.a); layout();
+    $("clipName").value = acName(i, "x").replace(/\.x$/, "");
+    $("acBackNote").textContent = "Editing clip " + (i + 1) + ". Export it again to save your changes."; $("acBack").hidden = false;
+    status("Clip " + (i + 1) + " is ready to edit. Trim it, change the captions or move the frame, then export it.");
+    $("studio").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+  $("acBackBtn").addEventListener("click", function () { if (AUTO.clips.filter(Boolean).length) { setMode("auto"); $("acDialog").showModal(); } else $("acBack").hidden = true; });
+  function setMode(m) {
+    var auto = m !== "edit", st = $("studio");
+    st.classList.toggle("mode-auto", auto); st.classList.toggle("mode-edit", !auto);
+    $("modeAuto").setAttribute("aria-selected", String(auto)); $("modeEdit").setAttribute("aria-selected", String(!auto));
+    if (auto) $("acBack").hidden = true;
+    try { localStorage.setItem("cutline_mode", auto ? "auto" : "edit"); } catch (e) {}
+    requestAnimationFrame(function () { renderWave(); renderEditor(); });
+  }
+  [$("modeAuto"), $("modeEdit")].forEach(function (b) { b.addEventListener("click", function () { if (S.exporting) return; setMode(b.dataset.mode); }); });
+  (function () { var m = "auto"; try { m = localStorage.getItem("cutline_mode") || "auto"; } catch (e) {} setMode(m); })();
   $("acSaveAll").addEventListener("click", async function () {
     var done = AUTO.clips.filter(Boolean); if (!done.length) return;
     var btn = this; btn.disabled = true; btn.textContent = "Making the ZIP...";
@@ -2282,6 +2478,7 @@ window.CutlineAdminStart = function () {
       if (AUTO.stop) break;
       if (!canExport()) { notes.push("You ran out of clips. Buy coins to make more."); break; }
       S.a = w.a; S.b = w.b; resetSegs(); if (AUTO.f.quiet) quietCuts(w.a, w.b); layout();
+      w.segs = S.segs.map(function (g) { return { s: g.s, e: g.e, cut: g.cut }; }); w.cap = { autoCap: S.autoCap, words: S.words, chunks: S.chunks, capRange: S.capRange }; w.caption = $("caption").value; w.frame = { fx: S.focus, fy: S.focusY, z: S.zoom };
       $("acStatus").textContent = "Clip " + (i + 1) + " of " + wins.length + ": making it now. Keep this tab open.";
       var res = await exportAndWait();
       if (res) { AUTO.clips[i] = res; w.kept = keptLength(); acDone(rows[i], i, w, res); $("acExt").textContent = "01." + res.ext; }
@@ -2641,6 +2838,20 @@ window.CutlineAdminStart = function () {
   try { var keptCaption = sessionStorage.getItem("cutline_try_caption"); if (keptCaption !== null && document.documentElement.classList.contains("signed-in")) { sessionStorage.removeItem("cutline_try_caption"); $("caption").value = keptCaption; $("caption").dispatchEvent(new Event("input", { bubbles: true })); } } catch (e) {}
   if ("IntersectionObserver" in window) new IntersectionObserver(function (en) { S.visible = en[0].isIntersecting; }).observe(preview);
   addEventListener("resize", function () { renderWave(); renderEditor(); });
+  /* Creators share their channel and a folder of videos. An admin checks the channel before clippers see it. */
+  $("creatorForm").addEventListener("submit", async function (e) {
+    e.preventDefault();
+    var st = $("crStatus"), go = $("creatorGo"), say = function (m, bad) { st.textContent = m; st.classList.toggle("bad", !!bad); };
+    var body = { channel: $("crChannel").value.trim(), folder: $("crFolder").value.trim(), rules: $("crRules").value.trim(), owns: $("crOwns").checked };
+    if (!body.channel) { say("Paste your channel link, like youtube.com/@yourname.", true); $("crChannel").focus(); return; }
+    if (!body.folder) { say("Paste the share link to your Google Drive or Dropbox folder.", true); $("crFolder").focus(); return; }
+    if (!body.owns) { say("Check the box to confirm you own these videos.", true); $("crOwns").focus(); return; }
+    if (Auth.mode !== "server") { say("Thanks! In this preview nothing is sent."); return; }
+    go.disabled = true; say("Sending...");
+    var d; try { d = await Auth.post("/api/creators", body); } catch (x) { d = { ok: false, message: "That didn't send. Check your connection and try again." }; }
+    go.disabled = false; say(d.message || (d.ok ? "Thanks! We'll be in touch." : "That didn't send. Try again."), !d.ok);
+    if (d.ok) $("creatorForm").reset();
+  });
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(layout);
   requestAnimationFrame(frame);
   Auth.onReady(function (u) { usedClips = u.clipsUsed; clipLimit = u.clipLimit; unlimited = u.role === "admin"; paidPlan = u.plan !== "free"; coins = u.coins || 0; planButtons(); renderFree(); layout(); readReturn(); loadConnections(); if (window.CutlineAdminStart) window.CutlineAdminStart(); });
