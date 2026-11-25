@@ -927,6 +927,24 @@ dialog input { background: rgba(255,255,255,.06); color: #F7F5FF; border-color: 
 .row-acts button.danger { color: #ff8fbd !important; }
 .row-acts button.armed { background: #ff2e88 !important; border-color: #ff2e88 !important; color: #fff !important; }
 #adminStatus { color: #27e8f2 !important; }
+
+/* Coins box in the top bar: dark box, yellow words, so the count is easy to read. */
+.nav-links a.coin-pill.coin-pill, .nav-links a.coin-pill.coin-pill.zero { background: rgba(255,225,77,.1); border-color: rgba(255,225,77,.5); color: #ffe14d; }
+.nav-links a.coin-pill.coin-pill:hover { background: rgba(255,225,77,.18); }
+.coin-pill b, .coin-pill .coin-word, .coin-pill.zero .coin-word { color: #ffe14d !important; }
+
+/* Signed-in top bar: same dark bar as the visitor one. */
+#appTop .nav-shell { background: rgba(11,9,20,.92); border-bottom-color: rgba(255,255,255,.1); }
+#appTop .brand { color: #fff; }
+#appTop .brand rect { fill: #fff; }
+#appTop .nav-links { color: #cfcbe6; }
+#appTop .nav-links a:not(.btn):not(.coin-pill):hover { color: #fff; }
+#appTop .nav-links .btn-ghost { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.2); color: #fff; }
+#appTop .nav-links .btn-white { background: #fff; color: #0F0C1D; }
+#appTop .nav-links a.admin-link { color: #27e8f2; }
+#appTop #logoutBtn { background: #e0156f; border-color: #e0156f; color: #fff; }
+#appTop .nav-links a, #appTop .nav-links .btn { white-space: nowrap; }
+@media (max-width: 1360px) { #appTop .nav-links a[href="#creators"], #appTop .nav-links a[href="#earnings"] { display: none; } }
 </style>
 </head>
 <body>
